@@ -3,13 +3,20 @@ on:
     branches:
       - master
       - proposal
+      - dev
       - fix-ci
   pull_request:
     branches:
       - master
       - proposal
+      - dev
 
 name: test
+
+# Limit concurrency to prevent resource conflicts
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   # Packages needed for the thesis compilation
@@ -50,6 +57,7 @@ env:
     lastpage
     latexmk
     lineno
+    listings
     minted
     multirow
     mwe
@@ -89,15 +97,16 @@ env:
 jobs:
   build-linux:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       matrix:
         compiler: [-xelatex, -lualatex]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Python for minted
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -105,9 +114,9 @@ jobs:
         run: pip install Pygments
 
       - name: Install TeX Live
-        uses: teatimeguest/setup-texlive-action@v3
+        uses: tex-live/setup-texlive-action@v3
         with:
-          version: 2023
+          version: 2025
           packages: ${{ env.TL_PACKAGES }}
           update-all-packages: true
 
@@ -124,20 +133,22 @@ jobs:
       - name: Upload pdf
         uses: actions/upload-artifact@v4
         with:
-          name: document linux output ${{ matrix.compiler }}
+          name: document-linux-${{ matrix.compiler }}
           path: linux${{ matrix.compiler }}.pdf
+          retention-days: 30
 
   build-macos:
     runs-on: macos-latest
+    timeout-minutes: 45
     strategy:
       matrix:
         compiler: [-xelatex, -lualatex]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Python for minted
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -145,9 +156,9 @@ jobs:
         run: pip install Pygments
 
       - name: Install TeX Live
-        uses: teatimeguest/setup-texlive-action@v3
+        uses: tex-live/setup-texlive-action@v3
         with:
-          version: 2023
+          version: 2025
           packages: ${{ env.TL_PACKAGES }}
           update-all-packages: true
 
@@ -164,20 +175,22 @@ jobs:
       - name: Upload pdf
         uses: actions/upload-artifact@v4
         with:
-          name: document macos output ${{ matrix.compiler }}
+          name: document-macos-${{ matrix.compiler }}
           path: macos${{ matrix.compiler }}.pdf
+          retention-days: 30
 
   build-windows:
     runs-on: windows-latest
+    timeout-minutes: 45
     strategy:
       matrix:
         compiler: [-xelatex, -lualatex]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Python for minted
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -185,9 +198,9 @@ jobs:
         run: pip install Pygments
 
       - name: Install TeX Live
-        uses: teatimeguest/setup-texlive-action@v3
+        uses: tex-live/setup-texlive-action@v3
         with:
-          version: 2023
+          version: 2025
           packages: ${{ env.TL_PACKAGES }}
           update-all-packages: true
 
@@ -204,5 +217,50 @@ jobs:
       - name: Upload pdf
         uses: actions/upload-artifact@v4
         with:
-          name: document windows output ${{ matrix.compiler }}
+          name: document-windows-${{ matrix.compiler }}
           path: windows${{ matrix.compiler }}.pdf
+          retention-days: 30
+
+  # Summary job to check all builds completed successfully
+  test-summary:
+    runs-on: ubuntu-latest
+    needs: [build-linux, build-macos, build-windows]
+    if: always()
+    steps:
+      - name: Check all builds succeeded
+        run: |
+          echo "Linux build status: ${{ needs.build-linux.result }}"
+          echo "macOS build status: ${{ needs.build-macos.result }}"
+          echo "Windows build status: ${{ needs.build-windows.result }}"
+
+          if [[ "${{ needs.build-linux.result }}" != "success" ||
+                "${{ needs.build-macos.result }}" != "success" ||
+                "${{ needs.build-windows.result }}" != "success" ]]; then
+            echo "One or more builds failed"
+            exit 1
+          fi
+          echo "All builds completed successfully"
+
+  # Collect all compiled PDFs into a single artifact
+  collect-pdfs:
+    runs-on: ubuntu-latest
+    needs: test-summary
+    if: needs.test-summary.result == 'success'
+    steps:
+      - name: Download all PDF artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: document-*
+          merge-multiple: true
+
+      - name: List downloaded files
+        run: |
+          echo "Downloaded PDF files:"
+          ls -la *.pdf
+
+      - name: Upload consolidated PDFs
+        uses: actions/upload-artifact@v4
+        with:
+          name: all-compiled-documents
+          path: "*.pdf"
+          retention-days: 90
