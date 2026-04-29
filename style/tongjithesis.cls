@@ -80,8 +80,8 @@
 % ==========================================
 % Font sizes
 \newcommand{\tjfonttitle}{\zihao{-2}}        % 课题名称：小二号
-\newcommand{\tjfontchapter}{\zihao{-3}}      % 章标题 / 目录标题：小三号
-\newcommand{\tjfontheading}{\zihao{4}}       % 摘要标题 / 参考文献 / 谢辞标题：四号
+\newcommand{\tjfontchapter}{\zihao{-3}}      % 章标题：小三号
+\newcommand{\tjfontheading}{\zihao{4}}       % 摘要 / 目录 / 参考文献 / 谢辞标题：四号
 \newcommand{\tjfontbody}{\zihao{-4}}         % 正文 / 二三级标题 / 关键词 / 摘要正文：小四号
 \newcommand{\tjfontcaption}{\zihao{-5}}      % 表题 / 图题：小五号
 \newcommand{\tjfontcover}{\zihao{-3}}        % 封面表格字段值：小三号（与 \tjfontchapter 同字号，语义分离）
@@ -99,8 +99,12 @@
 \newcommand{\tjinfofieldspread}{1.6667}   % 四号宋体 28 磅：28÷(14×1.2)≈5/3
 \newcommand{\tjinfoabstractspread}{1.25}  % 摘要小四 18 磅：18÷(12×1.2)=5/4（精确）
 \newcommand{\tjinfotitlevspace}{0.8em}    % 多行课题名称后的间距补偿（在四号上下文中解析）
-% Cover text：封面大标题恒定为"毕业设计（论文）"（文理科一致）
-\newcommand{\tjcovertext}{毕业设计（论文）}
+% Cover text：理工=毕业设计（论文）；文科=毕业论文（设计）
+\iftongjithesis@humanities
+  \newcommand{\tjcovertext}{毕业论文（设计）}
+\else
+  \newcommand{\tjcovertext}{毕业设计（论文）}
+\fi
 % Header text：理工=毕业设计（论文）；文科=毕业论文（设计）
 \iftongjithesis@humanities
   \newcommand{\tjheadertext}{毕业论文（设计）}
@@ -114,7 +118,7 @@
 % Page layout
 % headheight 43pt ≈ 1.14cm logo (≈32pt) + 小四号正文行 (≈11pt)；防止 fancyhdr headheight warning
 \setlength{\headheight}{43pt}
-% 页边距按同济本科毕业设计（论文）官方 Word 模板复刻
+% 页边距按同济本科毕业设计（论文）/毕业论文（设计）官方 Word 模板复刻
 \RequirePackage[a4paper,top=4.0cm,bottom=2.7cm,left=3.3cm,right=1.8cm]{geometry}
 \RequirePackage{fancyhdr}
 \RequirePackage{lastpage}
@@ -560,7 +564,7 @@
 \setlength{\cftbeforesecskip}{0pt}
 \setlength{\cftbeforesubsecskip}{0pt}
 \renewcommand{\contentsname}{目\hspace{0.5em}录}
-\renewcommand{\cfttoctitlefont}{\hfill\heiti\tjfontchapter}
+\renewcommand{\cfttoctitlefont}{\hfill\heiti\tjfontheading}
 \renewcommand{\cftaftertoctitle}{\hfill}
 % 目录标题后留一空行（匹配官方 Word 模板）
 % tocloft[titles] 下 \cftaftertoctitleskip 无效——\tableofcontents 内部走 \chapter*，
@@ -936,7 +940,7 @@
       \tjfonttitle\MakeUppercase{\textbf{\tongjiuniversityeng}}
       % \vskip 20pt
 
-      % 封面「毕业设计（论文）」字样：初号黑体（官方模板规范，文理科一致）
+      % 封面大标题：初号黑体（官方模板规范，理工/文科不同）
       \zihao{-0}\heiti{\tjcovertext}
       \vspace{60pt}
 
@@ -988,7 +992,7 @@
     \pagestyle{empty}% 防止信息页溢出到第二页时出现页码（titlepage 只 \thispagestyle empty）
 
     \begin{center}
-      \tjfontinfotitle\heiti 同济大学本科毕业设计（论文）信息说明页
+      \tjfontinfotitle\heiti 同济大学本科\tjheadertext 信息说明页
     \end{center}
 
     \vspace{1em}
