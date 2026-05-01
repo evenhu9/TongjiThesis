@@ -60,8 +60,6 @@ A LaTeX template that conforms to the official formatting requirements for Tongj
 
 #### Using Directly via Overleaf Template
 
-You can use this template directly via the [Overleaf template link](https://www.overleaf.com/latex/templates/tongji-university-undergraduate-thesis-template/tfvdvyggqybn).
-
 > [!IMPORTANT]
 > When using the Overleaf template, please check the compiler and main entry settings:
 >
@@ -70,15 +68,11 @@ You can use this template directly via the [Overleaf template link](https://www.
 
 #### Importing This Repository on Overleaf
 
-- Download this repository via `Code | Download ZIP` at the top of the repository home page file list;
-- Open [Overleaf](https://www.overleaf.com/);
-- Upload the downloaded `zip` file to Overleaf by dragging and dropping.
+Download this repository via `Code | Download ZIP` and drag-and-drop the ZIP file into [Overleaf](https://www.overleaf.com/).
 
 #### Compiling in GitHub Actions
 
-The project is configured with GitHub Actions in `.github/workflows/*.yaml`. Pushing code to a fork repository or a template-generated repository will trigger tests. You can obtain build artifacts for multiple platforms from the `Summary | Artifacts` section of the workflow run associated with the commit.
-
-(Enable GitHub Actions by checking `Settings | Actions | General | Allow all actions and reusable workflows`)
+Fork this repo and push to trigger CI. Download PDFs from the `Summary | Artifacts` section of the workflow run. Enable Actions first via `Settings | Actions | General`.
 
 ### Local Use
 
@@ -116,15 +110,7 @@ make wordcount          # word count
 
 <details><summary><b>Using VS Code and LaTeX Workshop Plugin</b></summary>
 
-Install the LaTeX Workshop plugin in VS Code, and then **open the root directory of this project directly** (i.e., the `TongjiThesis` folder, not a parent folder, otherwise `.vscode/settings.json` will not take effect).
-
-Since we have configured the LaTeX Workshop plugin in `.vscode/settings.json`, you only need to:
-
-- Select the `main.tex` file;
-- Click the button with the $\TeX$ icon on the left sidebar;
-- Click `Recipe: latexmk (xelatex)` from the `Build LaTeX project` list to compile the `.pdf` file.
-
-Alternatively, the LaTeX Workshop plugin will automatically compile the file when you save it.
+Install the LaTeX Workshop plugin, then **open this project's root directory directly** (the `TongjiThesis` folder — otherwise `.vscode/settings.json` won't take effect). Build recipes are pre-configured: open `main.tex`, select `Recipe: latexmk (xelatex)` from the TeX sidebar panel, or simply save to trigger auto-compilation.
 
 </details>
 
@@ -197,7 +183,7 @@ Use `\tjbibresource{file1.bib,file2.bib}` to specify bib files, and `\makerefere
 
 <details><summary><b>Rendering Rare Characters</b></summary>
 
-Due to the default use of the Fandol font in this template, support for rare characters such as names and specific terms might not be adequate. We provide the Adobe font set in the [`fonts`](https://github.com/TJ-CSCCG/TongjiThesis/tree/fonts) branch of our GitHub repository. You can download and install these fonts, and then use the `fontset=adobe` option in `main.tex` to use the Adobe font set:
+The default Fandol font has limited support for rare characters. Download the Adobe font set from the [`fonts`](https://github.com/TJ-CSCCG/TongjiThesis/tree/fonts) branch, install them to your system, and set `fontset=adobe` in `main.tex`:
 
 ```latex
 \documentclass[
@@ -207,38 +193,19 @@ Due to the default use of the Fandol font in this template, support for rare cha
 ]{tongjithesis}
 ```
 
-This modification will switch the rendering in the document to use the Adobe font set, enhancing support for rare characters.
-
-**Note**: Placing Adobe font files in the project's root directory and specifying the font path in `main.tex` is not always effective. Therefore, we recommend installing the Adobe fonts into the system font directory. Tests show that placing Adobe font files in the root directory of an Overleaf project and using LuaLaTeX for compilation works, but this method may slow down the compilation process.
+> [!NOTE]
+> Install fonts to the system font directory rather than the project root. On Overleaf, placing fonts in the project root works with LuaLaTeX but may slow compilation.
 
 </details>
 
 #### Code Highlighting Options
 
-This template provides two code highlighting solutions:
+Two code highlighting solutions are available:
 
-1. **`minted` package** (Python-based): Provides advanced syntax highlighting features, requires Python environment.
-   - Enable by setting `minted=true` (default) in `main.tex`
-   - Requires installation of Python and Pygments library (`pip install pygments`)
-   - You need to add Python to the system `PATH` environment variable,
-     - or specify the Python path in `main.tex` (see below)
-   - Requires `-shell-escape` parameter during compilation (this template has added)
+1. **`minted`** (default): Python-based (Pygments) with richer syntax highlighting. Requires Python with `pygments` installed (`pip install pygments`). Compilation needs `-shell-escape` (already configured in `latexmkrc`).
+2. **`listings`**: Pure LaTeX, no external dependencies. Set `minted=false` in `main.tex` to switch.
 
-2. **`listings` package** (pure LaTeX): Does not depend on external programs, can be used in any environment.
-   - Enable by setting `minted=false` in `main.tex`
-   - No additional program installation required
-
-If you do not want to install Python or encounter `minted`-related errors, you can change `minted=true` to `minted=false` in `main.tex`. When using `minted=false`, the template will automatically use the `listings` package to process all code, without requiring additional configuration.
-
-<details><summary>Using <code>minted</code> but don't want to add Python to the <code>PATH</code> environment variable?</summary>
-
-You can add a redirection to the Python path of the `minted` package in the `main.tex` file:
-
-```latex
-\renewcommand{\MintedPython}{/path/to/your/python}
-```
-
-</details>
+If you encounter `minted`-related errors, switch to `minted=false` — no further configuration needed.
 
 ## How to contribute to this project?
 
@@ -255,7 +222,7 @@ This project uses the [LPPL-1.3c license](https://www.latex-project.org/lppl/lpp
 - As of May 12, 2022, [skyleaworlder](https://github.com/skyleaworlder) started contributing to the project, integrated it into [TJ-CSCCG](https://github.com/TJ-CSCCG), and has continued to update and improve it. It has now become a comprehensive undergraduate thesis template.
 - From April 2023, [RizhongLin](https://github.com/RizhongLin) began contributing to and managing the project.
 - April 2025 update, implemented key-value based class options, supporting more flexible configuration.
-- 2026 update: migrated to `ctexbook` base class, added dual `biblatex`/`bibtex` backend support, `longlisting` cross-page code environment, `\makereferences` unified bibliography output, CI upgraded to TeX Live 2026; aligned with the 2026 Tongji writing standard — added information description page (`\MakeInfoPage`), font-size constant system (`\tjfontchapter` etc.), and longtable continuation helper (`\tjlongtablecont`).
+- 2026 update: migrated to `ctexbook` base class, fully aligned with the 2026 writing standard; added dual `biblatex`/`bibtex` backends, science/humanities dual numbering (`field`), information description page (`\MakeInfoPage`), cross-page code environment (`longlisting`); CI upgraded to TeX Live 2026.
 
 We deeply appreciate the efforts of these contributors, whose work has facilitated and assisted many students.
 

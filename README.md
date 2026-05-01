@@ -60,8 +60,6 @@
 
 #### 通过 Overleaf 模板直接使用
 
-您可以通过 [Overleaf 模板链接](https://www.overleaf.com/latex/templates/tongji-university-undergraduate-thesis-template/tfvdvyggqybn) 直接使用本模板。
-
 > [!IMPORTANT]
 > 在使用 Overleaf 模板时，请检查编译器和主入口的设置：
 >
@@ -70,15 +68,11 @@
 
 #### 在 Overleaf 上导入本仓库
 
-- 通过本仓库主页项目文件列表上方的 `Code | Download ZIP` 下载本仓库；
-- 打开 [Overleaf](https://www.overleaf.com/)；
-- 通过拖拽下载的 `zip` 文件上传至 Overleaf。
+通过 `Code | Download ZIP` 下载本仓库的 ZIP 文件，拖拽上传至 [Overleaf](https://www.overleaf.com/) 即可。
 
 #### 在 GitHub Actions 中编译
 
-项目以 `.github/workflows/*.yaml` 配置了 GitHub Actions，push 代码到 fork 仓库或 template-generated 仓库均可触发测试。可通过 commit 对应的 workflow run 中的 `Summary | Artifacts` 获得多平台构建产物。
-
-（通过勾选 `Settings | Actions | General | Allow all actions and reusable workflows` 打开 GitHub Actions）
+Fork 本仓库后 push 即可触发 CI，在 workflow run 的 `Summary | Artifacts` 下载 PDF。首次需在 `Settings | Actions | General` 中启用 Actions。
 
 ### 本地使用
 
@@ -116,15 +110,7 @@ make wordcount          # wordcount
 
 <details><summary><b>通过 VS Code 及 LaTeX Workshop 插件</b></summary>
 
-在 VS Code 中安装 LaTeX Workshop 插件，然后**直接打开本项目根目录**（即 `TongjiThesis` 文件夹，而非其上层文件夹，否则 `.vscode/settings.json` 配置无法生效）。
-
-因为我们已经在 `.vscode/settings.json` 中配置了 LaTeX Workshop 插件，所以您只需要：
-
-- 选中 `main.tex` 文件；
-- 点击左侧边栏中带有 $\TeX$ 图标的按钮；
-- 点击 `Build LaTeX project` 列表中的 `Recipe: latexmk (xelatex)` 编译 `.pdf` 文件。
-
-或者，LaTeX Workshop 插件会在您保存文件时自动编译。
+安装 LaTeX Workshop 插件后，**直接打开本项目根目录**（即 `TongjiThesis` 文件夹，否则 `.vscode/settings.json` 无法生效）。项目已预配置编译方案：打开 `main.tex`，在侧栏 TeX 面板中选择 `Recipe: latexmk (xelatex)` 即可编译，保存时也会自动编译。
 
 </details>
 
@@ -197,7 +183,7 @@ make wordcount          # wordcount
 
 <details><summary><b>渲染生僻字</b></summary>
 
-由于本模版默认使用 Fandol 字体，对于姓名、专有名词等生僻字的支持可能不够完善。我们在本模版 GitHub 仓库的 [`fonts`](https://github.com/TJ-CSCCG/TongjiThesis/tree/fonts) 分支中提供了 Adobe 字体集，您可以下载、安装这些字体，然后在 `main.tex` 中通过 `fontset=adobe` 选项来使用 Adobe 字体集：
+默认 Fandol 字体对生僻字支持有限。可从 [`fonts`](https://github.com/TJ-CSCCG/TongjiThesis/tree/fonts) 分支下载 Adobe 字体集并安装到系统，然后在 `main.tex` 中设置 `fontset=adobe`：
 
 ```latex
 \documentclass[
@@ -207,9 +193,8 @@ make wordcount          # wordcount
 ]{tongjithesis}
 ```
 
-这样修改后，LaTeX 将使用 Adobe 字体集来渲染文档。
-
-**注意**：将 Adobe 字体文件放置在项目根目录下并在 `main.tex` 中指定字体路径的方式并不总是有效。因此，我们建议您将 Adobe 字体文件安装到系统字体目录中。经测试，在 Overleaf 项目的根目录下放置 Adobe 字体文件，并只在使用 LuaLaTeX 编译的方式是有效的，但这种方式可能会导致编译速度变慢。
+> [!NOTE]
+> 建议将 Adobe 字体安装到系统字体目录，而非放在项目根目录。Overleaf 上可将字体文件放在根目录并用 LuaLaTeX 编译，但速度会变慢。
 
 </details>
 
@@ -217,28 +202,10 @@ make wordcount          # wordcount
 
 本模板提供两种代码高亮解决方案：
 
-1. **`minted` 包**（基于 Python）：提供高级的语法高亮功能，需要 Python 环境。
-   - 通过在 `main.tex` 中设置 `minted=true`（默认）启用
-   - 需要安装 Python 及 Pygments 库（`pip install pygments`）
-   - 需要将 Python 添加到系统环境变量 `PATH` 中，
-     - 或者在 `main.tex` 中指定 Python 路径（见下文）
-   - 编译时需添加 `-shell-escape` 参数（本模板已添加）
+1. **`minted`**（默认）：基于 Python Pygments，语法高亮更丰富。需安装 Python 并确保 `pygments` 可用（`pip install pygments`）。编译需 `-shell-escape`（已在 `latexmkrc` 中配置）。
+2. **`listings`**：纯 LaTeX 实现，无外部依赖。在 `main.tex` 中设置 `minted=false` 即可切换。
 
-2. **`listings` 包**（纯 LaTeX）：不依赖外部程序，在任何环境都能使用。
-   - 通过在 `main.tex` 中设置 `minted=false` 启用
-   - 无需额外安装任何程序
-
-如果您不希望安装 Python 或遇到 `minted` 相关错误，可以在 `main.tex` 中将 `minted=true` 修改为 `minted=false`。使用 `minted=false` 时，模板将自动使用 `listings` 包处理所有代码，无需其他配置。
-
-<details><summary>使用 <code>minted</code> 但不想将 Python 添加到环境变量 <code>PATH</code> 中？</summary>
-
-可以在 `main.tex` 文件中添加重定向 `minted` 宏包的 Python 路径：
-
-```latex
-\renewcommand{\MintedPython}{/path/to/your/python}
-```
-
-</details>
+遇到 `minted` 相关错误时，改为 `minted=false` 即可，无需其他配置。
 
 ## 如何为该项目贡献代码？
 
@@ -255,7 +222,7 @@ make wordcount          # wordcount
 - 2022.05.12 起，[skyleaworlder](https://github.com/skyleaworlder) 开始贡献本项目，并将其整合进 [TJ-CSCCG](https://github.com/TJ-CSCCG)，并持续对该项目进行更新和改进，目前已经成为一个完善的本科毕业论文模板。
 - 2023.04 起，[RizhongLin](https://github.com/RizhongLin) 开始贡献本项目，并负责项目的维护和更新。
 - 2025.04 更新，实现基于键值对的类选项，支持更灵活的配置。
-- 2026 更新，迁移至 `ctexbook` 基类，新增 `biblatex`/`bibtex` 双后端、`longlisting` 跨页代码环境、`\makereferences` 统一参考文献输出，CI 升级至 TeX Live 2026；对齐 2026 版撰写规范，新增信息说明页（`\MakeInfoPage`）、字号常量体系（`\tjfontchapter` 等）与续表辅助命令（`\tjlongtablecont`）。
+- 2026 更新，迁移至 `ctexbook` 基类，全面对齐 2026 版撰写规范；新增 `biblatex`/`bibtex` 双后端、理工/文科双编号体系（`field`）、信息说明页（`\MakeInfoPage`）、跨页代码环境（`longlisting`）；CI 升级至 TeX Live 2026。
 
 我们非常感谢以上贡献者的付出，他们的工作为更多同学提供了方便和帮助。
 
