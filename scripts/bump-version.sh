@@ -49,16 +49,16 @@ sed -i.bak "s/\"version\": \"${OLD_VERSION}\"/\"version\": \"${NEW_VERSION}\"/" 
 rm package.json.bak
 
 # tongjithesis.cls — update date and version in \ProvidesClass line
-sed -i.bak -E "s/\\\\ProvidesClass\\{tongjithesis\\}\[[0-9/]+ v[0-9]+\.[0-9]+\.[0-9]+/\\\\ProvidesClass{tongjithesis}[${TODAY} v${NEW_VERSION}/" style/tongjithesis.cls
+sed -i.bak -E 's#(\\ProvidesClass\{tongjithesis\}\[)[0-9][0-9/]* v[0-9]+\.[0-9]+\.[0-9]+#\1'"${TODAY} v${NEW_VERSION}#" style/tongjithesis.cls
 rm style/tongjithesis.cls.bak
 
 # tongjithesis.cfg — update date and version in \ProvidesFile line
-sed -i.bak -E "s/\\\\ProvidesFile\\{tongjithesis\.cfg\\}\[[0-9/]+ v[0-9]+\.[0-9]+\.[0-9]+/\\\\ProvidesFile{tongjithesis.cfg}[${TODAY} v${NEW_VERSION}/" style/tongjithesis.cfg
+sed -i.bak -E 's#(\\ProvidesFile\{tongjithesis\.cfg\}\[)[0-9][0-9/]* v[0-9]+\.[0-9]+\.[0-9]+#\1'"${TODAY} v${NEW_VERSION}#" style/tongjithesis.cfg
 rm style/tongjithesis.cfg.bak
 
 # style/font/*.def — update date and version in \ProvidesExplFile lines
 for def in style/font/tongji-cjk-font-*.def; do
-  sed -i.bak -E "s/\\{[0-9/]+\\}\\{[0-9]+\.[0-9]+\.[0-9]+\\}/\{${TODAY}\}\{${NEW_VERSION}\}/" "$def"
+  sed -i.bak -E 's#  \{[0-9][0-9/]*\}\{[0-9]+\.[0-9]+\.[0-9]+\}#  \{'"${TODAY}"'\}\{'"${NEW_VERSION}"'\}#' "$def"
   rm "${def}.bak"
 done
 
