@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://github.com/TJ-CSCCG/TongjiThesis/actions/workflows/test.yaml"><img src="https://github.com/TJ-CSCCG/TongjiThesis/actions/workflows/test.yaml/badge.svg" alt="CI"></a>
   <a href="https://github.com/TJ-CSCCG/TongjiThesis/releases"><img src="https://img.shields.io/github/v/release/TJ-CSCCG/TongjiThesis?label=Release" alt="Release"></a>
-  <a href="https://www.overleaf.com/latex/templates/tongji-university-undergraduate-thesis-template/tfvdvyggqybn"><img src="https://img.shields.io/badge/Overleaf-Template-138A07" alt="Overleaf"></a>
+  <a href="https://www.overleaf.com/latex/templates/tongjithesis-tongji-university-thesis-template/tfvdvyggqybn"><img src="https://img.shields.io/badge/Overleaf-Template-138A07" alt="Overleaf"></a>
   <a href="https://www.latex-project.org/lppl/lppl-1-3c/"><img src="https://img.shields.io/badge/License-LPPL--1.3c-blue" alt="License"></a>
   <a href="https://github.com/TJ-CSCCG/TongjiThesis/stargazers"><img src="https://img.shields.io/github/stars/TJ-CSCCG/TongjiThesis?style=flat" alt="Stars"></a>
   <img src="https://img.shields.io/badge/TeX%20Live-2026-blue" alt="TeX Live 2026">
@@ -15,20 +15,20 @@
   中文 | <a href="README-EN.md">English</a>
 </p>
 
-符合同济大学本科毕业设计论文官方格式要求的 LaTeX 模板。支持 XeLaTeX / LuaLaTeX 编译，提供 `minted` 和 `listings` 两种代码高亮方案，兼容 `biblatex` 和 `bibtex` 两种引用方式。在 Linux、macOS、Windows 三平台 CI 持续测试。
+同济大学本科毕业设计（论文）LaTeX 模板。
 
 > [!NOTE]
-> 完整样例可见 [Release 页](https://github.com/TJ-CSCCG/TongjiThesis/releases) 的 PDF 下载或 [Overleaf 模版 PDF](https://www.overleaf.com/latex/templates/tongji-university-undergraduate-thesis-template/tfvdvyggqybn.pdf)。各选项的详细用法见编译后的模板使用指南（第 1 章）。
+> 完整样例可见 [Release 页](https://github.com/TJ-CSCCG/TongjiThesis/releases) 的 PDF 下载或 [Overleaf 模版 PDF](https://www.overleaf.com/latex/templates/tongjithesis-tongji-university-thesis-template/tfvdvyggqybn.pdf)。各选项的详细用法见编译后的模板使用指南（第 1 章）。
 
 ---
 
 ## 快速开始
 
-| 方式               | 说明                                                                                                                                             |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Overleaf**       | 通过 [Overleaf 模板链接](https://www.overleaf.com/latex/templates/tongji-university-undergraduate-thesis-template/tfvdvyggqybn) 直接使用，零配置 |
-| **本地编译**       | 安装 [TeX Live 2026+](https://tug.org/texlive/quickinstall.html)，克隆仓库，运行 `make`                                                          |
-| **GitHub Actions** | Fork 本仓库，push 即可触发自动编译，在 Artifacts 中下载 PDF                                                                                      |
+| 方式               | 说明                                                                                                                                            |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Overleaf**       | 通过 [Overleaf 模板链接](https://www.overleaf.com/latex/templates/tongjithesis-tongji-university-thesis-template/tfvdvyggqybn) 直接使用，零配置 |
+| **本地编译**       | 安装 [TeX Live 2026+](https://tug.org/texlive/quickinstall.html)，克隆仓库，运行 `make`                                                         |
+| **GitHub Actions** | Fork 本仓库，push 即可触发自动编译，在 Artifacts 中下载 PDF                                                                                     |
 
 > [!TIP]
 > 本模板的 CI 基于 **TeX Live 2026** 进行测试。如果您在本地编译时遇到难以解释的编译错误，请首先检查并升级您的 TeX Live 至 2026 版本。
@@ -87,17 +87,13 @@ make wordcount          # wordcount
 .\make.bat help           # read the manual
 ```
 
-<details><summary><b>通过 VS Code 及 LaTeX Workshop 插件</b></summary>
+##### 通过 VS Code 及 LaTeX Workshop 插件
 
 安装 LaTeX Workshop 插件后，**直接打开本项目根目录**（即 `TongjiThesis` 文件夹，否则 `.vscode/settings.json` 无法生效）。项目已预配置编译方案：打开 `main.tex`，在侧栏 TeX 面板中选择 `Recipe: latexmk (xelatex)` 即可编译，保存时也会自动编译。
 
-</details>
-
-<details><summary><b>在 Docker 中使用</b></summary>
+##### 在 Docker 中使用
 
 详细使用方法见 [TongjiThesis-env](https://github.com/TJ-CSCCG/TongjiThesis-env)。
-
-</details>
 
 ### 模板配置
 
@@ -123,23 +119,20 @@ make wordcount          # wordcount
 > [!NOTE]
 > 经管类属社科类，26 届为过渡期可选 `field=science`（推荐）或 `field=humanities`；自 27 届起统一使用 `field=science`。
 
-<details><summary><b>渲染生僻字</b></summary>
+### 字体选择
 
-默认 Fandol 字体对生僻字支持有限。可从 [`fonts`](https://github.com/TJ-CSCCG/TongjiThesis/tree/fonts) 分支下载 Adobe 字体集并安装到系统，然后在 `main.tex` 中设置 `fontset=adobe`。
+- **Windows 用户**：可直接使用 `fontset=windows`，系统自带 SimSun / SimHei / KaiTi / FangSong 等字体，覆盖更广。
+- **跨平台用户**：推荐默认的 `fontset=fandol`（随 TeX Live 安装，零配置）。如需更广字符覆盖，可从 [cjk-fonts-for-ctex](https://github.com/TJ-CSCCG/cjk-fonts-for-ctex) 下载 Windows / Adobe / Founder 等字体并安装到系统，然后切换 `fontset`。
 
 > [!NOTE]
-> 建议将 Adobe 字体安装到系统字体目录，而非放在项目根目录。Overleaf 上可将字体文件放在根目录并用 LuaLaTeX 编译，但速度会变慢。
+> 安装新字体后请运行 `fc-cache -fv` 刷新字体缓存。
 
-</details>
-
-<details><summary><b>代码高亮选项</b></summary>
+### 代码高亮
 
 1. **`minted`**（默认）：基于 Python Pygments，语法高亮更丰富。需安装 Python 并确保 `pygments` 可用（`pip install pygments`）。
 2. **`listings`**：纯 LaTeX 实现，无外部依赖。
 
 在 `main.tex` 中设置 `minted=false` 即可切换。遇到 `minted` 相关错误时，改为 `minted=false` 即可。
-
-</details>
 
 ## 贡献与项目历史
 

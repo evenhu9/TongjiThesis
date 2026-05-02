@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://github.com/TJ-CSCCG/TongjiThesis/actions/workflows/test.yaml"><img src="https://github.com/TJ-CSCCG/TongjiThesis/actions/workflows/test.yaml/badge.svg" alt="CI"></a>
   <a href="https://github.com/TJ-CSCCG/TongjiThesis/releases"><img src="https://img.shields.io/github/v/release/TJ-CSCCG/TongjiThesis?label=Release" alt="Release"></a>
-  <a href="https://www.overleaf.com/latex/templates/tongji-university-undergraduate-thesis-template/tfvdvyggqybn"><img src="https://img.shields.io/badge/Overleaf-Template-138A07" alt="Overleaf"></a>
+  <a href="https://www.overleaf.com/latex/templates/tongjithesis-tongji-university-thesis-template/tfvdvyggqybn"><img src="https://img.shields.io/badge/Overleaf-Template-138A07" alt="Overleaf"></a>
   <a href="https://www.latex-project.org/lppl/lppl-1-3c/"><img src="https://img.shields.io/badge/License-LPPL--1.3c-blue" alt="License"></a>
   <a href="https://github.com/TJ-CSCCG/TongjiThesis/stargazers"><img src="https://img.shields.io/github/stars/TJ-CSCCG/TongjiThesis?style=flat" alt="Stars"></a>
   <img src="https://img.shields.io/badge/TeX%20Live-2026-blue" alt="TeX Live 2026">
@@ -15,20 +15,20 @@
   English | <a href="README.md">中文</a>
 </p>
 
-A LaTeX template that conforms to the official formatting requirements for Tongji University undergraduate theses. Supports XeLaTeX / LuaLaTeX compilation, offers both `minted` and `listings` for code highlighting, and is compatible with both `biblatex` and `bibtex` citation backends. Continuously tested on Linux, macOS, and Windows via CI.
+LaTeX template for Tongji University undergraduate thesis (design).
 
 > [!NOTE]
-> Full sample PDFs: [Release page](https://github.com/TJ-CSCCG/TongjiThesis/releases) or [Overleaf Template PDF](https://www.overleaf.com/latex/templates/tongji-university-undergraduate-thesis-template/tfvdvyggqybn.pdf). Detailed option documentation is in the compiled template guide (Chapter 1).
+> Full sample PDFs: [Release page](https://github.com/TJ-CSCCG/TongjiThesis/releases) or [Overleaf Template PDF](https://www.overleaf.com/latex/templates/tongjithesis-tongji-university-thesis-template/tfvdvyggqybn.pdf). Detailed option documentation is in the compiled template guide (Chapter 1).
 
 ---
 
 ## Quick Start
 
-| Method             | Description                                                                                                                                              |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Overleaf**       | Use the [Overleaf template](https://www.overleaf.com/latex/templates/tongji-university-undergraduate-thesis-template/tfvdvyggqybn) directly — zero setup |
-| **Local**          | Install [TeX Live 2026+](https://tug.org/texlive/quickinstall.html), clone the repo, run `make`                                                          |
-| **GitHub Actions** | Fork this repo, push to trigger CI, download PDFs from Artifacts                                                                                         |
+| Method             | Description                                                                                                                                             |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Overleaf**       | Use the [Overleaf template](https://www.overleaf.com/latex/templates/tongjithesis-tongji-university-thesis-template/tfvdvyggqybn) directly — zero setup |
+| **Local**          | Install [TeX Live 2026+](https://tug.org/texlive/quickinstall.html), clone the repo, run `make`                                                         |
+| **GitHub Actions** | Fork this repo, push to trigger CI, download PDFs from Artifacts                                                                                        |
 
 > [!TIP]
 > This template is tested against **TeX Live 2026** in CI. If you encounter unexplained compilation errors locally, please check and upgrade your TeX Live to 2026 first.
@@ -87,17 +87,13 @@ make wordcount          # word count
 .\make.bat help           # read the manual
 ```
 
-<details><summary><b>Using VS Code and LaTeX Workshop Plugin</b></summary>
+##### Using VS Code and LaTeX Workshop Plugin
 
 Install the LaTeX Workshop plugin, then **open this project's root directory directly** (the `TongjiThesis` folder — otherwise `.vscode/settings.json` won't take effect). Open `main.tex`, select `Recipe: latexmk (xelatex)` from the TeX sidebar panel, or save to trigger auto-compilation.
 
-</details>
-
-<details><summary><b>Using in Docker</b></summary>
+##### Using in Docker
 
 For detailed usage, see [TongjiThesis-env](https://github.com/TJ-CSCCG/TongjiThesis-env).
-
-</details>
 
 ### Template Configuration
 
@@ -123,23 +119,20 @@ Configure in `main.tex` via `\documentclass`:
 > [!NOTE]
 > Economics & Management: class of 2026 may choose `field=science` (recommended) or `field=humanities`; from class of 2027 onward, use `field=science` uniformly.
 
-<details><summary><b>Rendering Rare Characters</b></summary>
+### Font Selection
 
-The default Fandol font has limited support for rare characters. Download the Adobe font set from the [`fonts`](https://github.com/TJ-CSCCG/TongjiThesis/tree/fonts) branch, install them to your system, and set `fontset=adobe` in `main.tex`.
+- **Windows users**: Use `fontset=windows` — SimSun / SimHei / KaiTi / FangSong are included with the OS and provide broader coverage.
+- **Cross-platform users**: The default `fontset=fandol` (shipped with TeX Live, zero-config) is recommended. For broader character coverage, download Windows / Adobe / Founder fonts from [cjk-fonts-for-ctex](https://github.com/TJ-CSCCG/cjk-fonts-for-ctex), install them to your system, then switch the `fontset`.
 
 > [!NOTE]
-> Install fonts to the system font directory rather than the project root. On Overleaf, placing fonts in the project root works with LuaLaTeX but may slow compilation.
+> Run `fc-cache -fv` after installing new fonts to refresh the font cache.
 
-</details>
-
-<details><summary><b>Code Highlighting Options</b></summary>
+### Code Highlighting
 
 1. **`minted`** (default): Python-based (Pygments) with richer syntax highlighting. Requires Python with `pygments` installed (`pip install pygments`).
 2. **`listings`**: Pure LaTeX, no external dependencies.
 
 Set `minted=false` in `main.tex` to switch. If you encounter `minted`-related errors, switch to `minted=false`.
-
-</details>
 
 ## Contributing & Project History
 
