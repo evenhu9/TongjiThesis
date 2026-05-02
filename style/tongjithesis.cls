@@ -1104,10 +1104,17 @@
 % 设置全角句号替换为全角点号
 % fullwidthstop=dot：将句号（。U+3002）替换为全角句点（．U+FF0E）
 % ctex/xeCJK 的 PunctStyle 仅控制标点间距，不做字符映射，故需 \catcode 方案
-\expandafter\ifstrequal\expandafter{\tongjithesis@fullwidthstop}{dot}{%
+% 兼容旧版 boolean 写法（v1.3.1 及之前），true 同 dot
+\newif\iftongjithesis@fullwidth@active
+\tongjithesis@fullwidth@activefalse
+\expandafter\ifstrequal\expandafter{\tongjithesis@fullwidthstop}{dot}
+  {\tongjithesis@fullwidth@activetrue}{}
+\expandafter\ifstrequal\expandafter{\tongjithesis@fullwidthstop}{true}
+  {\tongjithesis@fullwidth@activetrue}{}
+\iftongjithesis@fullwidth@active
   \catcode`\。=\active
   \newcommand{。}{\ifmmode\text{．}\else ．\fi}%
-}{}
+\fi
 
 % 加载用户配置文件
 % cfg is found via TEXINPUTS: locally via .latexmkrc (./style//), or alongside cls on CTAN/texmf.
