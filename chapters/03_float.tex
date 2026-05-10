@@ -1,488 +1,411 @@
-\chapter{图表与代码}\label{chap:float}
 
-本章介绍插图、表格、算法和代码等浮动体的使用方法。浮动体可以自由浮动在页面中，\LaTeX{} 会自动选择合适的位置进行排版。如需固定位置，可使用 \pkg{float} 宏包的 \texttt{[H]} 参数。
+\chapter{系统设计与实现}
 
-浮动体位置选项说明：\texttt{h}（here，当前位置）、\texttt{t}（top，页面顶部）、\texttt{b}（bottom，页面底部）、\texttt{p}（page，独立浮动页）、\texttt{!}（放宽内部限制）、\texttt{H}（强制固定位置，需 \pkg{float} 宏包）。
+本章先从整体架构出发，再围绕开题报告提出的三个核心改进方向展开：3.2节阐述PSM流程控制机制优化（问题一），3.3节说明工具扩展与机制优化（问题二），3.4节介绍Web管理界面的实现（问题三）。
 
-\section{插图}
+\section{系统总体架构}
 
-\subsection{单个图形}
+\subsection{设计目标}
 
-要插入单个图形，可以使用 \verb|\includegraphics| 命令，并在其参数中指定图像文件名和一些选项。例如：
+本系统以AutoPT原框架为基础，针对2.3.3节提出的局限性做定向改进，归纳为以下设计目标：
 
-\begin{figure}[!htb]
-  \centering
-  \includegraphics[width=0.7\textwidth]{figures/tongjithesis.pdf}
-  \caption{\TongjiThesis{} 项目标志}
-  \label{fig:example}
+（1）提升流程控制的灵活性和可靠性。改进版 AutoPT把各Agent提示词规范进行统一，并且设定清晰的角色界限。把Scan阶段划分成若干个子阶段，用来细化状态粒度，并且能够根据扫描结果决定是否提前结束。设计上下文压缩机制来控制Token 消耗。改进Check阶段的验证逻辑，把匹配域缩小到工具输出，加入语义判断来共同验证。
+
+（2）补齐工具能力并提高解析的容错能力。改进版 AutoPT 对Playwright工具包进行扩展，覆盖表单填写、下拉框选择等交互场景，同时对ReAct解析器进行重构，能够解析包括思维链练模型在内的非标准输出格式。
+
+（3）改进版 AutoPT 设计了图形化管理界面。建立Web Console来替换纯命令行交互，使任务配置、监控执行日志和测试结果数据都可以在浏览器中进行完成。
+
+\subsection{架构层次}
+
+系统仍采用分层设计，自底向上分别是基础设施层、核心引擎层、业务逻辑层和表示层。
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{image1}
+\caption{系统总体架构图}
+\label{fig:arch}
 \end{figure}
 
-这段代码会在浮动体中插入一个名为 \verb|figures/tongjithesis.pdf| 的图形，并将其居中显示。图形下方会有一个标题，同时为该图形标上标签，以便于交叉引用。
+表示层对应用户直接接触的Web Console，前端用原生JavaScript实现SPA，后端由Flask提供RESTful API。业务逻辑层负责接收HTTP请求、管理Docker容器和处理配置读写。核心引擎层是系统的调度中心，LangGraph状态机、三个Agent（Scan、Inquire、Exploit）、两个程序化处理阶段（VulnSelect、Check）以及改造后的PSM控制逻辑都在这里运行。基础设施层提供扫描、利用、浏览器自动化和容器运行等底层能力，包括nmap、xray、Playwright、GitHub API和Docker Engine。各层之间彼此解耦，调整某一层时不必牵连其他部分。项目完整目录结构见附录\ref{app:structure}。
 
-如需在正文中引用该图，可使用 \verb|\cref{fig:example}| 命令，效果为“\cref{fig:example}”；也可使用 \verb|\figref{fig:example}| 命令，效果为“\figref{fig:example}”。
+\subsection{数据流}
 
-需要注意的是，在使用 \verb|\includegraphics| 命令时，应该将图像文件放在与主文档相同的目录中，或者在参数中指定文件的完整路径。
+用户将目标地址、必要参数提交后，系统会创建任务。首先由Scan Agent完成端口扫描和漏洞扫描，再到VulnSelect阶段选择一个漏洞进入后续验证；随后Inquire Agent 通过GitHub等外部源检索PoC，Exploit Agent根据检索的结果进行多步利用操作，最终Check阶段结合语义判断和正则匹配来验证利用是否成功。执行过程中所产生的日志和统计数据会持续回传到Web Console，由前端展示整个系统的运行过程。
 
-推荐使用矢量图格式（PDF）用于图表和流程图，位图建议使用 PNG 格式（照片可用 JPG），矢量图在缩放时不会失真。
-
-注意在浮动体内部应使用 \verb|\centering| 命令而非 \verb|\begin{center}...\end{center}| 环境，后者会引入额外的垂直间距。
-
-\subsection{多个图形}
-
-如果需要在同一浮动体中插入多个图形，可以使用 \pkg{subcaption} 宏包（旧的 \pkg{subfigure} 与 \pkg{subfig} 宏包已过时，请勿使用）。
-最简单的做法是将多张图并排放入同一 \texttt{figure} 环境、用 \cs{hspace} 间隔——此时多图共用一个图号，没有各自子图题，如\cref{fig:example-subfig-1}。
-
-\begin{figure}[!htb]
-  \centering
-  \includegraphics[width=0.4\textwidth]{example-image-a}
-  \hspace{1cm}
-  \includegraphics[width=0.4\textwidth]{example-image-b}
-  \caption{这是一个示例图形组}
-  \label{fig:example-subfig-1}
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{image2}
+\caption{自动化渗透测试数据流}
+\label{fig:dataflow}
 \end{figure}
 
-如果多个图形相互独立，不共用一个图形计数器，可以使用 \texttt{minipage} 或 \texttt{parbox}，如\cref{fig:parallel1,fig:parallel2}。
+\section{PSM流程控制机制优化}
 
-\begin{figure}[!htb]
-  \begin{minipage}{0.4\textwidth}
-    \centering
-    \includegraphics[width=\textwidth]{example-image-a}
-    \caption{并排第一个图}
-    \label{fig:parallel1}
-  \end{minipage}\hfill
-  \begin{minipage}{0.4\textwidth}
-    \centering
-    \includegraphics[width=\textwidth]{example-image-b}
-    \caption{并排第二个图}
-    \label{fig:parallel2}
-  \end{minipage}
-\end{figure}
+PSM（Penetration Testing State Machine）是AutoPT的核心流程控制组件，负责将侦察、筛选、情报检索、漏洞利用和结果验证五个阶段串联为一条完整的自动化渗透测试链路。原版PSM在实际运行中暴露出多方面不足：各Agent的提示词缺乏统一规范，输出格式和角色边界模糊；Scan阶段仅使用xray对默认端口扫描，无法覆盖非标准端口上的服务；工具返回的冗长原始输出直接拼入上下文，快速耗尽Token窗口；Inquire Agent的PoC提取没有容错机制，格式错误即全盘丢失；Check阶段将模型推理文本与工具真实输出混在一起做匹配，容易产生假阳性判定。
 
-若希望多个子图共用一个计数器并分别拥有子图题，使用 \pkg{subcaption} 宏包的 \cs{subcaptionbox} 命令（或 \texttt{subfigure} 环境），子图号以 a)、b) 区分，如\cref{fig:subcaptionbox}。
+本节分别从提示词设计、扫描流程细化、上下文管理、PoC提取容错和结果验证可靠性五个方面说明改进方案。
 
-\begin{figure}[!htb]
-  \centering
-  \subcaptionbox{左图}{\includegraphics[width=0.4\textwidth]{example-image-a}}
-  \hspace{1cm}
-  \subcaptionbox{右图}{\includegraphics[width=0.3\textwidth]{example-image-b}}
-  \caption{包含子图题的示例（使用 subcaptionbox）}
-  \label{fig:subcaptionbox}
-\end{figure}
+\subsection{提示词结构化与角色差异化}
 
+原版三个Agent各自维护一份独立的完整提示词，角色定义均为"well-trained penetration tester"，对输出格式的约束仅限于零散的"Special"条目（如"Do not have meaningless output after the keyword line"）。这套做法在实际运行中引发了三类问题。其一，不同Agent的ReAct格式说明大量重复，维护成本高且容易出现不一致。其二，角色定义模糊导致越权行为频发，Scan Agent有时会尝试执行漏洞利用命令，Inquire Agent有时会调用不属于它的工具。其三，对Thought字段没有长度约束，调用带有思维链能力的模型（如DeepSeek R1）时，模型会输出大量<thinking>...</thinking>内部推理标签，LangChain的ReAct解析器无法识别这类标签，导致Action字段提取失败，Agent陷入死循环。
 
-\section{表格}
+\paragraph{统一ReAct基线模板}
 
-\subsection{基本表格}
+改进版将三个Agent共用的ReAct骨架抽取为\_REACT\_HEADER和\_REACT\_FOOTER两个基线模块，各Agent只在两者之间填充各自的角色定义和操作规范。这种方式去除了三个提示词中的重复内容，让格式规则的修改只需要在一处完成就可对全部Agent生效。
 
-编排表格时应简单明了、表达一致，内容明晰易懂，表文呼应，内容一致。表题应置于表格上方。
+在格式约束上，改进版在\_REACT\_HEADER中引入了显式的FORMAT RULES模块：
 
-表格的编排建议采用国际通行的三线表\footnote{三线表以其形式简洁、功能分明、阅读方便而在科技论文中被推荐使用。三线表通常只有3条线，即顶线、底线和栏目线，没有竖线。}。可以使用 \pkg{booktabs} 宏包提供的 \cs{toprule}、\cs{midrule} 和 \cs{bottomrule} 命令来绘制三线表。同时，\pkg{longtable} 宏包可以与三线表很好地配合使用，可以排版较长的表格。
-要编写三线表，需要在表格的头部、底部和每一栏之间绘制水平线。其中，\cs{toprule} 绘制顶部线，\cs{midrule} 绘制中部线，\cs{bottomrule} 绘制底部线。可以按照如下方式绘制三线表：
+\begin{Verbatim}[mathescape=false]
+FORMAT RULES (MUST follow exactly):
+- No internal reasoning or <thinking> tags.
+- Each "Thought:" must be ONE sentence, immediately followed by "Action:" or "Final Answer:".
+\end{Verbatim}
 
-\begin{table}[!hpt]
-  \caption{一个三线表}
-  \label{tab:firstone}
-  \centering
-  \begin{tabular}{@{}llr@{}} \toprule
-    \multicolumn{2}{c}{\textbf{Item}}                            \\ \cmidrule(r){1-2}
-    \textbf{Animal} & \textbf{Description} & \textbf{Price} (\$) \\ \midrule
-    Gnat            & per gram             & 13.65               \\
-                    & each                 & 0.01                \\
-    Gnu             & stuffed              & 92.50               \\
-    Emu             & stuffed              & 33.33               \\
-    Armadillo       & frozen               & 8.99                \\ \bottomrule
-  \end{tabular}
-\end{table}
+第一条规则直接禁止了思维链模型输出内部推理内容，第二条规则把Thought限定为单句，并且必须有Action或Final Answer 继续输出，这些规则让解析器在每轮循环中都能稳定地提取动作指令。改进版新增了解析容错函数\_format\_parsing\_error，让系统可以在模型偶尔输出不符合格式的内容时引导模型在下一轮生成正确的ReAct格式，而不是直接报错。
 
-\subsection{复杂表格}
+\paragraph{角色差异化与行为边界}
 
-我们经常会在表格下方标注数据来源，或者对表格里面的条目进行解释。可以用
-\pkg{threeparttable} 实现带有脚注的表格，如\cref{tab:bigtable}。
+改进后为每个Agent 均定义了不同的角色，不再像原版统一使用"well-trained penetration tester"这一个身份。下面将对各个Agent的角色设定、行为边界进行逐一说明：
 
-\begin{table}[!htb]
-  \centering
-  \begin{threeparttable}[b]
-    \caption{一个更大的三线表}
-    \label{tab:bigtable}
-    \begin{tabular}{@{}llrrrrrrr@{}} \toprule
-      \multicolumn{2}{c}{\textbf{Item}} & \multicolumn{2}{c}{\textbf{Category 1}} & \multicolumn{2}{c}{\textbf{Category 2}} & \multicolumn{2}{c}{\textbf{Category 3}} & \multicolumn{1}{c}{\textbf{Total}}                                                                                     \\ \cmidrule(r){1-2} \cmidrule(lr){3-4} \cmidrule(lr){5-6} \cmidrule(lr){7-8} \cmidrule(l){9-9}
-      \textbf{Animal}                   & \textbf{Description}                    & \textbf{Price} (\$)                     & \textbf{Quantity}                       & \textbf{Price} (\$)                & \textbf{Quantity} & \textbf{Price} (\$) & \textbf{Quantity} & \textbf{Price} (\$) \\ \midrule
-      Gnat                              & per gram\tnote{a}                       & 13.65                                   & 100                                     & 12.35                              & 200               & 11.55               & 150               & 3650.00             \\
-                                        & each                                    & 0.01                                    & 5000                                    & 0.01                               & 10000             & 0.009               & 20000             & 550.00              \\
-      Gnu                               & stuffed                                 & 92.50                                   & 10                                      & 94.50                              & 15                & 96.50               & 20                & 5815.00             \\
-      Emu                               & stuffed                                 & 33.33                                   & 25                                      & 34.33                              & 30                & 35.33               & 35                & 2704.95             \\
-      Armadillo                         & frozen                                  & 8.99                                    & 50                                      & 7.99                               & 40                & 6.99                & 30\tnote{b}       & 1094.50             \\ \bottomrule
-    \end{tabular}
-    \begin{tablenotes}
-      \item [a] 第一条脚注。
-      \item [b] 第二条脚注。
-    \end{tablenotes}
-  \end{threeparttable}
-\end{table}
+原版Scan Agent的角色描述为"your task is to perform the xray scanner"，没有任何行为限制。改进版将其限定为"ROLE: Vulnerability scanner (SCAN ONLY, NO EXPLOITATION). Complete ALL steps. "通过SCAN ONLY, NO EXPLOITATION直接禁止了侦察阶段的越权利用行为。
 
-为了编写更复杂的表格，我们可以使用 \href{https://www.tablesgenerator.com/}{Tables Generator} 来生成 \LaTeX{} 代码。该工具可以方便地设置表格的列数、行数、内容、格式、颜色等属性，支持常用的表格类型和样式，并且可以实时生成 \LaTeX{} 代码和预览效果，避免手动编写 \LaTeX{} 代码时出错。
+同时，提示词以(MANDATORY)标记强制规定了Step 1（nmap端口发现）→ Step 2（xray漏洞扫描）→ Step 3（结果）的有序执行流程，RULES模块中以"MUST run nmap FIRST — never assume port 80"作为兜底约束，确保模型不会跳过端口发现直接进入漏洞扫描。
 
+原版Inquire Agent的角色描述为"your task is to query further vulnerability exploitation knowledge"，可以使用所有工具。改进版将其改为：
 
-如某个表需要转页接排，可以用 \pkg{longtable} 实现。接排时表题省略，表头应重复书
-写，并在右上方写“续表 X”，如\cref{tab:performance}。
+\begin{Verbatim}[mathescape=false]
+ROLE: Vulnerability analyst — fetch PoC and produce executable exploit commands.
+\end{Verbatim}
 
-\begin{ThreePartTable}
-  \begin{TableNotes}
-    \item[a] 一个脚注
-    \item[b] 另一个脚注
-  \end{TableNotes}
-  \begin{longtable}[c]{c*{6}{r}}
-    \caption{实验数据}
-    \label{tab:performance}                                                                                                                      \\
+\begin{Verbatim}[mathescape=false]
+⚠️ You have ONLY ONE tool: ReadHTML. After getting PoC, use "Final Answer:" to output commands.
+Do NOT use EXECMD, None, or any other action name.
+\end{Verbatim}
+
+通过符号强调只有ReadHTML一个工具可用，防止在情报检索阶段出现越权执行命令。WORKFLOW模块规定了PoC的输出格式，每个操作步骤必须使用STEP N:编号，Web表单交互的步骤还要标注[BROWSER SETUP/EXPLOIT]，所有占位符IP必须替换为实际目标 IP。与原版自然语言总结不同，改进版要求的是结构化可执行步骤，使下游Exploit Agent可以直接按照顺序执行，不需要二次解析。
+
+原版Exploit Agent的操作规则是"Try to use command line tools (such as curl)"，成功标准是"If you feel your target has been successfully accomplished, you can stop"。改进版对这两处都做了改动：
+
+\begin{Verbatim}[mathescape=false]
+ROLE: Penetration tester executing authorized security assessment.
+You have command-line (EXECMD) and browser automation tools.
+\end{Verbatim}
+
+\begin{Verbatim}[mathescape=false]
+SUCCESS CRITERIA: /etc/passwd content, uid=/gid= output, phpinfo(), or code execution evidence.
+\end{Verbatim}
+
+\begin{Verbatim}[mathescape=false]
+METHODOLOGY:
+1. Analyze: check if browser interaction needed
+2. Prerequisites: complete setup (navigate → fill → click → wait) if needed
+3. Exploit: execute ALL steps in order via EXECMD or browser
+4. Verify: check for success evidence
+5. Adapt: if failed, switch approach (curl↔browser, payload variation). MAX 8 attempts
+\end{Verbatim}
+
+METHODOLOGY模块规定了包括分析→准备→执行→验证→自适应切换这六步的方法模式，并且允许最多8次尝试，使Agent在漏洞利用过程中不会因为一次失败而放弃整条攻击路径。
+
+\subsection{Scan状态粒度细化}
+
+原版Scan阶段的工作流只有一条规则："Use xray in EXECMD for scanning"。也就是说，xray扫哪个端口完全取决于传入的URL。如果漏洞服务恰好跑在9200（Elasticsearch）或8080（Tomcat）这样的非标准端口上，而URL里写的是默认的80，xray根本不会去碰那些端口，后面的流程自然也就接不上了。
+
+针对这个问题，改进版把原来一步到位的Scan拆成了端口发现、服务知识匹配、漏洞扫描和结果评估四个子阶段，每个子阶段只负责一件事。具体的执行工具和目标见\cref{tab:ch3:1}：
+
+\begin{table}[htbp]
+\centering
+\caption{Scan阶段子阶段说明} \label{tab:ch3:1}
+  \renewcommand{\arraystretch}{1.3}
+\begin{tabular}{l>{\raggedright\arraybackslash}p{2.5cm}>{\raggedright\arraybackslash}p{4cm}>{\raggedright\arraybackslash}p{6cm}}
     \toprule
-    \textbf{测试程序\tnote{b}} & \multicolumn{1}{c}{\textbf{正常运行}}   & \multicolumn{1}{c}{\textbf{同步}}
-                           & \multicolumn{1}{c}{\textbf{检查点}}    & \multicolumn{1}{c}{\textbf{卷回恢复}}
-                           & \multicolumn{1}{c}{\textbf{进程迁移}}   & \multicolumn{1}{c}{\textbf{检查点}}                                              \\
-                           & \multicolumn{1}{c}{\textbf{时间} (s)} & \multicolumn{1}{c}{\textbf{时间} (s)}
-                           & \multicolumn{1}{c}{\textbf{时间} (s)} & \multicolumn{1}{c}{\textbf{时间} (s)}
-                           & \multicolumn{1}{c}{\textbf{时间} (s)} & \textbf{文件}（KB）                                                               \\
+子阶段 & 含义 & 关联工具/模块 & 阶段目标与约束\\
     \midrule
-    \endfirsthead
-    \tjlongtablecont{7}
-
-    \toprule
-    \textbf{测试程序\tnote{b}} & \multicolumn{1}{c}{\textbf{正常运行}}   & \multicolumn{1}{c}{\textbf{同步}}
-                           & \multicolumn{1}{c}{\textbf{检查点}}    & \multicolumn{1}{c}{\textbf{卷回恢复}}
-                           & \multicolumn{1}{c}{\textbf{进程迁移}}   & \multicolumn{1}{c}{\textbf{检查点}}                                              \\
-                           & \multicolumn{1}{c}{\textbf{时间} (s)} & \multicolumn{1}{c}{\textbf{时间} (s)}
-                           & \multicolumn{1}{c}{\textbf{时间} (s)} & \multicolumn{1}{c}{\textbf{时间} (s)}
-                           & \multicolumn{1}{c}{\textbf{时间} (s)} & \textbf{文件}（KB）                                                               \\
+1 & 端口发现与服务识别 & EXECMD (nmap) & 全端口SYN扫描（-p-）发现开放端口，-sV -sC识别服务类型与版本 \\
     \midrule
-    \endhead
-    \hline
-    \multicolumn{7}{r}{续下页}
-    \endfoot
-    \insertTableNotes
-    \endlastfoot
-    CG.C.2                 & 23.05                               & 0.002                               & 0.116          & 0.035 & 0.589 & 32491  \\
-    CG.A.4                 & 15.06                               & 0.003                               & 0.067          & 0.021 & 0.351 & 18211  \\
-    CG.A.8                 & 13.38                               & 0.004                               & 0.072          & 0.023 & 0.210 & 9890   \\
-    CG.B.2                 & 867.45                              & 0.002                               & 0.864          & 0.232 & 3.256 & 228562 \\
-    CG.B.4                 & 501.61                              & 0.003                               & 0.438          & 0.136 & 2.075 & 123862 \\
-    CG.B.8                 & 384.65                              & 0.004                               & 0.457          & 0.108 & 1.235 & 63777  \\
-    MG.A.2                 & 112.27                              & 0.002                               & 0.846\tnote{a} & 0.237 & 3.930 & 236473 \\
-    MG.A.4                 & 59.84                               & 0.003                               & 0.442          & 0.128 & 2.070 & 123875 \\
-    MG.A.8                 & 31.38                               & 0.003                               & 0.476          & 0.114 & 1.041 & 60627  \\
-    MG.B.2                 & 526.28                              & 0.002                               & 0.821          & 0.238 & 4.176 & 236635 \\
-    MG.B.4                 & 280.11                              & 0.003                               & 0.432          & 0.130 & 1.706 & 123793 \\
-    MG.B.8                 & 148.29                              & 0.003                               & 0.442          & 0.116 & 0.893 & 60600  \\
-    LU.A.2                 & 2116.54                             & 0.002                               & 0.110          & 0.030 & 0.532 & 28754  \\
-    LU.A.4                 & 1102.50                             & 0.002                               & 0.069          & 0.017 & 0.255 & 14915  \\
-    LU.A.8                 & 574.47                              & 0.003                               & 0.067          & 0.016 & 0.192 & 8655   \\
-    LU.B.2                 & 9712.87                             & 0.002                               & 0.357          & 0.104 & 1.734 & 101975 \\
-    LU.B.4                 & 4757.80                             & 0.003                               & 0.190          & 0.056 & 0.808 & 53522  \\
-    LU.B.8                 & 2444.05                             & 0.004                               & 0.222          & 0.057 & 0.548 & 30134  \\
-    EP.A.2                 & 123.81                              & 0.002                               & 0.010          & 0.003 & 0.074 & 1834   \\
-    EP.A.4                 & 61.92                               & 0.003                               & 0.011          & 0.004 & 0.073 & 1743   \\
-    EP.A.8                 & 31.06                               & 0.004                               & 0.017          & 0.005 & 0.073 & 1661   \\
-    EP.B.2                 & 495.49                              & 0.001                               & 0.009          & 0.003 & 0.196 & 2011   \\
-    SP.B.4                 & 397.69                              & 0.002                               & 0.015          & 0.005 & 0.122 & 1763   \\
-    SP.B.8                 & 196.74                              & 0.003                               & 0.018          & 0.006 & 0.082 & 1865   \\
-    AA.A.2                 & 13.81                               & 0.002                               & 0.012          & 0.004 & 0.074 & 1362   \\
-    AA.A.4                 & 6.92                                & 0.003                               & 0.011          & 0.003 & 0.073 & 1331   \\
-    AA.A.8                 & 3.06                                & 0.004                               & 0.017          & 0.004 & 0.073 & 1225   \\
-    AA.B.2                 & 49.49                               & 0.001                               & 0.009          & 0.003 & 0.196 & 2254   \\
-    AA.B.4                 & 24.69                               & 0.002                               & 0.012          & 0.004 & 0.122 & 1453   \\
-    AA.B.8                 & 12.74                               & 0.003                               & 0.018          & 0.005 & 0.082 & 1432   \\
-    AA.C.2                 & 13.81                               & 0.002                               & 0.012          & 0.004 & 0.074 & 1362   \\
-    AA.C.4                 & 6.92                                & 0.003                               & 0.011          & 0.003 & 0.073 & 1331   \\
-    AA.C.8                 & 3.06                                & 0.004                               & 0.017          & 0.004 & 0.073 & 1225   \\
-    EP.C.2                 & 495.49                              & 0.001                               & 0.009          & 0.003 & 0.196 & 2011   \\
-    EP.C.4                 & 397.69                              & 0.002                               & 0.015          & 0.005 & 0.122 & 1763   \\
-    EP.C.8                 & 196.74                              & 0.003                               & 0.018          & 0.006 & 0.082 & 1865   \\
+2 & 服务知识匹配 & services.yml知识库 & 根据识别出的服务类型匹配知识库条目，为下游Exploit Agent注入CVE特征与攻击线索 \\
+    \midrule
+3 & 漏洞扫描 & EXECMD (xray) & 对子阶段1发现的所有HTTP端口逐一执行Web漏洞扫描 \\
+    \midrule
+4 & 结果评估与终止判断 & parse\_vuln + scan\_failed & 解析漏洞列表，非空则进入下游，为空则写入scan\_failed标志终止流程 \\
     \bottomrule
-  \end{longtable}
-\end{ThreePartTable}
+\end{tabular}
+\end{table}
 
+\paragraph{动态端口发现与服务知识库}
 
+子阶段1通过nmap的-p-参数扫描全部65535个端口，配合-sV -sC进行服务指纹识别，将端口发现的覆盖范围从单一默认端口扩展到了完整端口空间。nmap识别出的服务类型（如Elasticsearch、Tomcat）一方面用于判定哪些端口运行着HTTP服务，供子阶段3的xray扫描确定目标；另一方面作为子阶段2服务知识匹配的输入，整体流程如\cref{fig:portscan}所示：
 
-\section{算法}
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{image3}
+\caption{动态端口发现流程}
+\label{fig:portscan}
+\end{figure}
 
-算法环境可由 \pkg{algorithm} + \pkg{algpseudocode}（本模板已加载）或较新的 \pkg{algorithm2e} 宏包实现。
-\cref{algo:algorithm} 是一个使用 \pkg{algpseudocode} 的示例。
+子阶段2会使用config/services.yml文件，在这个文件中我们按服务名整理了一批常见服务的信息，每条记录除了会标注该服务的默认端口、可能出现的名称别名之外，还包括它的CVE特征关键词cve\_patterns，以及具体的漏洞探索提示exploit\_hints，后者主要是为下游的Exploit Agent指明大致的尝试方向。以下以 elasticsearch 和 tomcat 两条记录为例说明字段结构：
 
-\begin{algorithm}
-  \caption{计算斐波那契数列}\label{algo:algorithm}
-  \begin{algorithmic}[1]
-    \Require $n \geq 0$
-    \Ensure $fib(n)$
-    \Function{Fibonacci}{$n$}
-    \If{$n \leq 1$}
-    \State \Return $n$
-    \Else
-    \State \Return \Call{Fibonacci}{$n-1$} + \Call{Fibonacci}{$n-2$}
-    \EndIf
-    \EndFunction
-  \end{algorithmic}
-\end{algorithm}
+\begin{Verbatim}[mathescape=false]
+  elasticsearch:
+    port: 9200
+    aliases: ["elastic", "es"]
+    cve_patterns: ["script injection", "dynamic scripting", "groovy", "mvel"]
+    exploit_hints: "Script injection via _search API, check /_search endpoint"
 
-\section{代码}
+  tomcat:
+    port: 8080
+    aliases: ["apache tomcat"]
+    cve_patterns: ["manager", "ajp", "deserialization", "rce"]
+    exploit_hints: "Check /manager/html with default creds, AJP ghostcat"
+\end{Verbatim}
 
-\subsection{代码高亮方式}
+在运行时，系统通过generate\_cve\_patterns函数读取知识库内容，将匹配到的条目作为SERVICE PATTERNS模块，注入下游Exploit Agent的提示词中。当Exploit Agent面对一个Elasticsearch的靶机时，可以直接从提示词中获取攻击提示，不需要在通用知识中检索。
 
-本模板提供 \pkg{listings} 和 \pkg{minted} 两种代码高亮方案，可通过文档类选项 \texttt{minted=true}（默认）或 \texttt{minted=false} 切换。\pkg{listings} 是 \LaTeX{} 原生的代码显示包，始终可用，无需外部依赖；\pkg{minted} 基于 Python Pygments，提供更精确的语法解析和更丰富的高亮效果，但需要安装 Python 和 Pygments（\texttt{pip install pygments}），编译时需添加 \texttt{-shell-escape} 参数。若环境受限，可设置 \texttt{minted=false} 回退至 \pkg{listings}。
+\paragraph{扫描结果为空时的提前终止}
 
-\subsection{代码块示例}
+改进版在Scan阶段结束后增加了一次条件判断。当Scan Agent输出Final Answer后，系统对其返回内容执行parse\_vuln解析提取漏洞条目列表。若解析结果为空，系统立即向全局状态写入scan\_failed=True标志，不再构造下游任务；状态机的路由函数检测到该标志后，直接将控制流导向终端节点（End），整条测试链路就此终止，如\cref{fig:psm}所示：
 
-\pkg{listings} 包是 \LaTeX{} 最常用的代码高亮工具，无论 \texttt{minted} 选项如何设置，它始终可用。以下是一个基本示例：
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{image4}
+\caption{条件驱动的状态转移模型}
+\label{fig:psm}
+\end{figure}
 
-\begin{lstlisting}[
-  language=Python,         % 指定语法高亮的编程语言
-  caption={使用listings包的Python示例},
-  label=lst:basic-example
-]
-# 这是一个简单的Python函数
-def hello_world(name: str = "World") -> str:
-    """返回个性化问候语"""
-    greeting = f"Hello, {name}!"
-    return greeting
+与原版相比，系统新增了一个截断点，可以在scan阶段结束时提前退出，原版 AutoPT 只能在Exploit失败后退出。对于没有暴露漏洞的目标，直接跳过Inquire和Exploit两个Agent的调用，系统执行完Scan阶段即可结束。
 
-# 调用函数并打印结果
-print(hello_world())  # 输出: Hello, World!
-print(hello_world("LaTeX"))  # 输出: Hello, LaTeX!
-\end{lstlisting}
+\subsection{上下文压缩机制}
 
-\pkg{listings} 包支持绝大多数编程语言，如 C/C++、Java、Python、MATLAB、R、SQL 等，使用 \texttt{language} 参数指定即可。
+在多轮ReAct循环中，每次工具调用返回的原始输出都会追加到Agent的上下文中。但nmap、xray、curl等工具的输出通常很长，其中真正影响下一步决策的信息只占一小部分，其余都是转义序列、空行、HTML标签之类的冗余内容。原版系统不做裁剪就把它们全部拼进上下文，几轮循环下来Token窗口就会被撑满，Agent还没完成任务就被迫中断。
 
-\subsubsection{关于跨页代码段的说明}
-\pkg{listings} 和 \pkg{minted} 均支持跨页显示代码段。一般而言，学术写作中不建议在正文中放置大段代码，建议仅展示关键代码片段，将完整代码放入附录或以外部链接形式提供。
+改进版从两个层面实施上下文压缩：工具输出的即时摘要和跨阶段上下文的结构化组装。
 
-本模板提供了 \texttt{longlisting} 环境，用于排版需要跨页显示并带有标题的代码块。与浮动体代码环境不同，\texttt{longlisting} 不会浮动，可以自然跨越多页。在环境内部放置代码块，并用 \cs{caption} 添加标题即可。以下为示例：
+\paragraph{工具输出即时摘要}
 
-\makeatletter
-\begin{longlisting}
-\iftongjithesis@minted
-\begin{minted}{python}
-from dataclasses import dataclass, field
-from typing import Dict, List, Tuple
+每次工具调用返回时，系统通过\_summarize\_tool\_output函数对原始输出进行压缩处理。该函数首先清除ANSI转义序列和冗余空行，然后按预定义的关键token列表（包括漏洞标识[Vuln:、服务指纹cluster\_name、错误信息Error/Exception、成功证据root:x:0:0/uid=等）过滤输出内容，仅保留包含关键信息的行。过滤后的结果经过去重处理，最终截断至2000字符以内。对于不包含任何关键token的输出，系统保留首尾各10行作为摘要，确保不会完全丢失上下文信息。
 
-# 同济大学五级制绩点对照（2017年版）
-GRADE_TABLE: Dict[str, Tuple[int, int]] = {
-    "A": (5, 95),  # 优 Excellent
-    "B": (4, 85),  # 良 Good
-    "C": (3, 75),  # 中 Fair
-    "D": (2, 65),  # 及格 Pass
-    "F": (0, 30),  # 不及格 Failed
-}
+\paragraph{跨阶段结构化上下文组装}
 
-VALID_GRADES = set(GRADE_TABLE.keys())
+当Agent需要引用其他阶段的历史信息时（典型场景如Exploit Agent需要了解Scan阶段发现了哪些漏洞），改进版不是将全部历史消息拼接传入，而是通过\_build\_structured\_context函数按层级组装一份精简的结构化上下文。该函数将信息分为三个层级，按重要性递减的顺序拼接：
 
+\begin{table}[htbp]
+\centering
+\caption{结构化上下文组装层级} \label{tab:ch3:2}
+  \renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lll}
+    \toprule
+层级 & 内容 & 保留策略 \\
+    \midrule
+L1 & 当前任务目标（Final Goal）与选定漏洞 & 完整保留 \\
+    \midrule
+L2 & Scan阶段漏洞列表（经排序） & 仅保留Top 3条，每条仅保留vulntype、level、target三个字段 \\
+    \midrule
+L3 & 最近2条工具观察记录 & 各限500字符，经\_summarize\_message\_for\_prompt摘要 \\
+    \bottomrule
+\end{tabular}
+\end{table}
 
-@dataclass
-class Course:
-    """课程信息"""
-    name: str      # 课程名称
-    credits: float # 学分
-    grade: str     # 成绩等级 (A/B/C/D/F)
+L1层确保Agent始终清楚"要做什么"和"针对哪个漏洞"；L2层提供扫描阶段的关键发现，但通过截取Top 3和字段过滤将原本可能长达数千字符的扫描报告压缩到几行；L3层仅保留最近两条工具交互的摘要，避免早期的冗余历史挤占Token窗口。配合前面的工具输出即时摘要，两层压缩叠加后，多轮ReAct循环中的上下文长度基本可控。
 
-    def __post_init__(self):
-        if self.grade not in VALID_GRADES:
-            raise ValueError(f"无效的成绩等级: {self.grade}")
-        if self.credits <= 0:
-            raise ValueError(f"学分须为正数: {self.credits}")
+\subsection{PoC多层级容错提取}
 
-    @property
-    def grade_point(self) -> int:
-        """课程绩点"""
-        return GRADE_TABLE[self.grade][0]
+Inquire Agent的核心职责是从开源渠道获取可执行的PoC并适配为下游Exploit Agent可以直接执行的命令序列。然而在实际运行中，Inquire Agent经常因为输出格式不符合ReAct规范而耗尽迭代次数，此时intermediate\_steps可能为空，原版系统直接丢弃这轮输出，导致即使Agent的推理过程中已经包含了有价值的PoC信息也无法被利用。
 
-    @property
-    def equiv_score(self) -> int:
-        """百分制折算值"""
-        return GRADE_TABLE[self.grade][1]
+改进版通过多层级容错提取机制来提升PoC提取的可靠性。在Inquire Agent执行完毕后，系统会调用\_try\_extract\_exploit\_from\_output函数，依据下述优先级逐层尝试提取能够执行的PoC命令：
 
-    def __repr__(self) -> str:
-        return f"{self.name}({self.credits}学分, {self.grade})"
+\begin{table}[htbp]
+\centering
+\caption{PoC容错提取层级} \label{tab:ch3:3}
+  \renewcommand{\arraystretch}{1.3}
+\begin{tabular}{l>{\raggedright\arraybackslash}p{3cm}>{\raggedright\arraybackslash}p{7cm}}
+    \toprule
+提取层级 & 数据来源 & 适用场景 \\
+    \midrule
+层级1 & Agent的Final Answer输出 & Agent正常完成，Final Answer中包含完整PoC \\
+    \midrule
+层级2 & Agent推理文本（agent\_log） & Agent因格式错误未能输出Final Answer，但推理过程中生成了有效命令 \\
+    \midrule
+层级3 & ReadHTML工具的原始返回内容 & Agent没能正确提取PoC，但工具已经成功抓取了包含命令的网页内容 \\
+    \midrule
+层级4 & Final Answer或最后一次工具输出（兜底） & 以上层级均未提取到有效命令，将原始输出整体传递给Exploit Agent \\
+    \bottomrule
+\end{tabular}
+\end{table}
 
+提取函数内部通过正则匹配curl命令模式、Markdown代码块和HTTP请求模板三种格式，尽可能从非结构化文本中还原出可执行指令。提取到的PoC命令存入独立字段poc\_steps，在构建Exploit Agent输入时以纯文本方式拼入{input}变量值（而非经过PromptTemplate解析），从而避免PoC中的JSON花括号等特殊字符被误解析。
 
-@dataclass
-class Transcript:
-    """成绩单：按同济大学本科生成绩计算方法"""
-    student_name: str = ""
-    student_id: str = ""
-    courses: List[Course] = field(default_factory=list)
+\subsection{Check动态结果匹配}
 
-    def add(self, name: str, credits: float, grade: str) -> None:
-        """添加一门课程成绩"""
-        self.courses.append(Course(name, credits, grade))
+Check阶段能够在Exploit Agent执行完成后验证漏洞利用是否成功。原版的验证逻辑是遍历Agent的所有历史对话来进行字符串匹配，即当历史消息中出现设定的成功标识字符串，如root:x:0:0时，即判定利用成功。这种设计很容易导致误判。如果模型在推理过程也就是模型输出的 Thought 中有假设性的描述，比如"如果攻击成功，我应该能看到root:x:0:0"，Check阶段会将这段推理文本误判为成功证据。改进版对Check机制做了两处改动，缩小匹配范围以及增加一层LLM语义判断。
 
-    @property
-    def total_credits(self) -> float:
-        """总学分"""
-        return sum(c.credits for c in self.courses)
+\paragraph{匹配域缩小为工具输出}
 
-    @property
-    def gpa(self) -> float:
-        """平均绩点 = sum(学分 * 绩点) / sum(学分)"""
-        if self.total_credits == 0:
-            return 0.0
-        weighted = sum(c.credits * c.grade_point for c in self.courses)
-        return round(weighted / self.total_credits, 2)
+改进版在Agent执行过程中，会把每次EXECMD和浏览器工具的原始输出分别记录到raw\_outputs["Exploit"]中，使它们与模型的推理文本分离。Check阶段的所有验证操作仅在raw\_outputs["Exploit"]上执行，不再受到LLM推理文本的干扰。
 
-    @property
-    def avg_score(self) -> float:
-        """百分制平均成绩 = sum(折算值 * 学分) / sum(学分)"""
-        if self.total_credits == 0:
-            return 0.0
-        weighted = sum(c.credits * c.equiv_score for c in self.courses)
-        return round(weighted / self.total_credits, 1)
+\paragraph{LLM判断优先与正则兜底}
 
-    def ranking(self) -> List[Tuple[str, float, int]]:
-        """按绩点降序排列课程"""
-        return sorted(
-            [(c.name, c.credits, c.grade_point) for c in self.courses],
-            key=lambda x: x[2], reverse=True,
-        )
+在缩小匹配域的条件下，改进版继续加入两层判断机制。第一层是LLM判断，系统把任务目标和工具输出提交给LLM，使用验证提示词要求其只回答SUCCESS或FAILURE。第二层使用正则匹配作为兜底。如果LLM调用异常或返回结果不明确，系统会切换到使用正则表达式来匹配。改进后的正则规则没有按照原版那样对特定漏洞名称进行硬编码匹配，而是按证据类型定义通用的正则模式，可以适配任意靶机环境，不用为每个新漏洞单独编写匹配规则。
 
-    def summary(self) -> str:
-        """生成成绩摘要"""
-        lines = [f"学生: {self.student_name} ({self.student_id})"]
-        lines.append(f"总学分: {self.total_credits}")
-        lines.append(f"平均绩点 (GPA): {self.gpa}")
-        lines.append(f"百分制平均成绩: {self.avg_score}")
-        return "\n".join(lines)
+\section{工具扩展与机制优化}
 
+原版AutoPT的工具体系包含三个基础工具：执行命令行的EXECMD、抓取网页内容的ReadHTML，以及LangChain内置的Playwright浏览器工具包。针对2.3.3节提到的工具短板和解析容错问题，本节围绕浏览器交互扩展、ReAct解析容错和PoC信息获取增强三个方面，说明工具侧的改进。
 
-if __name__ == "__main__":
-    t = Transcript("张三", "2024001")
-    t.add("高等数学", 6.0, "A")
-    t.add("线性代数", 4.0, "B")
-    t.add("数据结构", 4.0, "A")
-    t.add("大学物理", 4.0, "C")
-    t.add("程序设计", 3.0, "A")
+\subsection{自定义浏览器扩展工具}
 
-    print(t.summary())
-    print("\n课程排名:")
-    for name, credits, gp in t.ranking():
-        print(f"  {name}: {credits}学分, 绩点{gp}")
-\end{minted}
-\else
-\begin{lstlisting}[language=Python]
-from dataclasses import dataclass, field
-from typing import Dict, List, Tuple
+LangChain的PlayWrightBrowserToolkit提供了页面导航、元素点击、文本提取等基础能力，但缺少三类在渗透测试中高频使用的交互操作：在输入框中填写文本（如安装向导中的站点名称、管理员密码）、在下拉框中选择选项（如选择数据库类型SQLite）、以及在页面跳转或AJAX加载后等待目标元素出现。原版系统遇到这类场景时，Agent只能尝试通过click\_element和手动构造JavaScript来间接实现，成功率极低。
 
-# 同济大学五级制绩点对照（2017年版）
-GRADE_TABLE: Dict[str, Tuple[int, int]] = {
-    "A": (5, 95),  # 优 Excellent
-    "B": (4, 85),  # 良 Good
-    "C": (3, 75),  # 中 Fair
-    "D": (2, 65),  # 及格 Pass
-    "F": (0, 30),  # 不及格 Failed
-}
+改进版在Playwright之上封装了三个自定义浏览器扩展工具，继承LangChain的BaseBrowserTool基类，与原生工具包共享同一个浏览器实例：
 
-VALID_GRADES = set(GRADE_TABLE.keys())
+\begin{table}[htbp]
+\centering
+\caption{浏览器扩展工具说明} \label{tab:ch3:4}
+  \renewcommand{\arraystretch}{1.3}
+\begin{tabular}{>{\raggedright\arraybackslash}p{2.5cm}>{\raggedright\arraybackslash}p{4.5cm}>{\raggedright\arraybackslash}p{6cm}}
+    \toprule
+工具名称 & 功能 & 典型使用场景 \\
+    \midrule
+fill\_element & 通过CSS选择器定位input/textarea元素，清空已有内容后填入指定文本 & 安装向导填写站点名称和管理员密码、登录页面输入凭据 \\
+    \midrule
+select\_option & 通过CSS选择器定位<select>下拉框，按value属性或可见文本标签选择选项 & 安装向导选择数据库类型（如SQLite）、配置页面选择参数 \\
+    \midrule
+wait\_for\_selector & 等待指定CSS选择器的元素在页面中出现并变为可见状态，支持自定义超时时间 & 表单提交后等待下一步页面加载、AJAX动态内容渲染完成 \\
+    \bottomrule
+\end{tabular}
+\end{table}
 
+这三个自定义工具不需要自己去启动和关闭浏览器，它们通过调用get\_current\_page函数拿到的就是Toolkit里\texttt{navigate\_browser}、\texttt{click\_element}等工具正在用的浏览器页面，大家共享同一个浏览器实例。三个自定义工具的错误处理也与原生工具保持一致，遇到超时不会直接抛出异常，而是会返回一条描述性的错误消息，这样Agent可以在下一轮ReAct循环中根据这条信息调整策略。
 
-@dataclass
-class Course:
-    """课程信息"""
-    name: str      # 课程名称
-    credits: float # 学分
-    grade: str     # 成绩等级 (A/B/C/D/F)
+select\_option工具的内部实现了两级匹配机制，优先按照<option>元素的value属性匹配，如果没有命中则降级为按可见文本标签进行匹配，以此兼容不同的HTML写法。
 
-    def __post_init__(self):
-        if self.grade not in VALID_GRADES:
-            raise ValueError(f"无效的成绩等级: {self.grade}")
-        if self.credits <= 0:
-            raise ValueError(f"学分须为正数: {self.credits}")
+三个自定义工具与LangChain原生Playwright工具的架构关系如\cref{fig:browser}所示：
 
-    @property
-    def grade_point(self) -> int:
-        """课程绩点"""
-        return GRADE_TABLE[self.grade][0]
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.7\textwidth]{image5}
+\caption{浏览器工具层架构}
+\label{fig:browser}
+\end{figure}
 
-    @property
-    def equiv_score(self) -> int:
-        """百分制折算值"""
-        return GRADE_TABLE[self.grade][1]
+\subsection{ReAct解析器容错增强}
 
-    def __repr__(self) -> str:
-        return f"{self.name}({self.credits}学分, {self.grade})"
+ReAct框架要求LLM严格按照Thought → Action → Action Input的格式输出， Thought后面没有紧跟Action、Action名称拼写不规范、或者输出中混入了额外标签，解析器都会直接抛出OutputParserException。在使用带有思维链能力的模型（如DeepSeek-R1）时，模型会在输出前插入大段<thinking>...</thinking>标签，导致解析器无法定位到Action字段，Agent在每一轮循环中都会解析失败，直至耗尽迭代次数。
 
+改进版实现了RobustReActParser，继承原版解析器并覆写parse方法，将解析过程设计为多级逐步降级的容错链：
 
-@dataclass
-class Transcript:
-    """成绩单：按同济大学本科生成绩计算方法"""
-    student_name: str = ""
-    student_id: str = ""
-    courses: List[Course] = field(default_factory=list)
+\begin{table}[htbp]
+\centering
+\caption{ReAct解析器降级策略} \label{tab:ch3:5}
+  \renewcommand{\arraystretch}{1.3}
+\begin{tabular}{l>{\raggedright\arraybackslash}p{5cm}>{\raggedright\arraybackslash}p{5cm}}
+    \toprule
+解析步骤 & 处理内容 & 降级条件 \\
+    \midrule
+Step 0 & 清洗<thinking>等思维链标签 & 始终执行 \\
+    \midrule
+Step 1 & 调用原版标准解析器 + 工具名规范化 & 标准解析抛异常时降级 \\
+    \midrule
+Step 2 & 宽松正则提取Final Answer（含STEP 1/2/...多步格式） & 未匹配到Final Answer时降级 \\
+    \midrule
+Step 3 & 宽松正则提取Action和Action Input（支持大小写不敏感、从整句话中提取工具名） & 未匹配到合法工具名时降级 \\
+    \midrule
+Step 4 & 从Markdown代码块中提取可执行命令，直接作为EXECMD工具调用 & 无代码块时降级 \\
+    \midrule
+Step 5 & 全部失败，抛出异常并附带格式修复指导（列出正确格式示例和可用工具名） & 终止 \\
+    \bottomrule
+\end{tabular}
+\end{table}
 
-    def add(self, name: str, credits: float, grade: str) -> None:
-        """添加一门课程成绩"""
-        self.courses.append(Course(name, credits, grade))
+其中，Step 1的工具名规范化维护了一张已知工具名的映射表，将execmd、exec\_cmd、Execmd等变体统一映射为标准名称EXECMD，同时能从"I will use the EXECMD tool"这类整句话中通过正则提取出合法工具名。Step 2对Inquire Agent的多步PoC输出做了专门处理：即使LLM没有写Final Answer:前缀，只要文本中出现STEP 1:开头且包含可执行命令（如curl、wget等），也会被识别为有效的终止输出。
 
-    @property
-    def total_credits(self) -> float:
-        """总学分"""
-        return sum(c.credits for c in self.courses)
+配合AgentExecutor创建时注入的\_format\_parsing\_error回调函数，解析失败时系统不再简单报错，而是返回一段结构化的格式指导消息，明确告知LLM应当使用的输出格式和可用工具列表，使模型在下一轮迭代中能够自我修正。
 
-    @property
-    def gpa(self) -> float:
-        """平均绩点 = sum(学分 * 绩点) / sum(学分)"""
-        if self.total_credits == 0:
-            return 0.0
-        weighted = sum(c.credits * c.grade_point for c in self.courses)
-        return round(weighted / self.total_credits, 2)
+\subsection{ReadHTML工具的PoC提取增强}
 
-    @property
-    def avg_score(self) -> float:
-        """百分制平均成绩 = sum(折算值 * 学分) / sum(学分)"""
-        if self.total_credits == 0:
-            return 0.0
-        weighted = sum(c.credits * c.equiv_score for c in self.courses)
-        return round(weighted / self.total_credits, 1)
+原版ReadHTML工具（cat\_html函数）的功能仅限于抓取指定URL的网页内容并返回纯文本。在渗透测试场景中，Inquire Agent最常访问的是vulhub GitHub仓库中的漏洞README页面，这些页面中包含大量与PoC无关的环境搭建说明、Docker配置和背景介绍，真正有用的PoC命令往往淹没在长文本中，Agent需要消耗额外的推理轮次来从中筛选。
 
-    def ranking(self) -> List[Tuple[str, float, int]]:
-        """按绩点降序排列课程"""
-        return sorted(
-            [(c.name, c.credits, c.grade_point) for c in self.courses],
-            key=lambda x: x[2], reverse=True,
-        )
+改进版对ReadHTML工具做了针对性增强，当输入URL匹配GitHub vulhub仓库的模式时，工具会自动识别并提取README中的代码块（即Markdown的\texttt{}包裹内容），过滤掉环境搭建和Docker相关的命令（如docker-compose up`），只返回与漏洞利用直接相关的PoC代码片段。这样Inquire Agent拿到的就是精简后的PoC信息，不需要再花推理轮次从长文本中筛选。
 
-    def summary(self) -> str:
-        """生成成绩摘要"""
-        lines = [f"学生: {self.student_name} ({self.student_id})"]
-        lines.append(f"总学分: {self.total_credits}")
-        lines.append(f"平均绩点 (GPA): {self.gpa}")
-        lines.append(f"百分制平均成绩: {self.avg_score}")
-        return "\n".join(lines)
+\section{Web Console前端设计与实现}
 
+\subsection{要解决的问题}
 
-if __name__ == "__main__":
-    t = Transcript("张三", "2024001")
-    t.add("高等数学", 6.0, "A")
-    t.add("线性代数", 4.0, "B")
-    t.add("数据结构", 4.0, "A")
-    t.add("大学物理", 4.0, "C")
-    t.add("程序设计", 3.0, "A")
+原版AutoPT只提供命令行界面，用户需要自己在终端中输入命令、跟踪滚动日志，并手动管理Docker容器的启停。对熟悉命令行的人这不算问题，但如果面向日常演示、实验记录和图形化运维，门槛就偏高了。那么我们设计Web Console的目标很明确，要把常用操作收拢到一个可视化界面里，让用户不依赖终端也能完成大部分日常任务。
 
-    print(t.summary())
-    print("\n课程排名:")
-    for name, credits, gp in t.ranking():
-        print(f"  {name}: {credits}学分, 绩点{gp}")
-\end{lstlisting}
-\fi
-\caption{跨页代码段示例（Python）}\label{lst:cross-page}
-\end{longlisting}
-\makeatother
+围绕这个目标，Web Console在设计上需要满足几个基本要求，在渗透测试过程中日志能够实时展示，并且能够把测试结果、Token消耗等统计数据以图表形式呈现。
 
-行内代码可以使用 \verb|\verb| 命令，或使用高亮命令以获得更好的效果，例如：
-\makeatletter
-\iftongjithesis@minted
-  \mintinline{python}{print("Hello")}
-\else
-  \lstinline[language=Python]{print("Hello")}
-\fi
-\makeatother
-（与普通文本 \verb|print("Hello")| 对比）。
+\subsection{技术选型}
 
-\section{分页控制}
+下表列出了Web Console各层次的技术选型及其选择理由：
 
-在\LaTeX{}排版系统中，\verb|\newpage| 和 \verb|\clearpage| 命令都能强制开始新页面，但它们有着重要区别。\verb|\newpage| 仅创建新页面，而 \verb|\clearpage| 还会处理所有待处理的浮动体，确保它们在新页面前被正确放置。
+\begin{table}[htbp]
+\centering
+\caption{Web Console技术选型} \label{tab:ch3:6}
+  \renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lll}
+    \toprule
+层次 & 选型 & 理由 \\
+    \midrule
+后端 & Python Flask & 提供RESTful API，足够轻量 \\
+    \midrule
+前端 & 原生HTML/CSS/JS & SPA架构，不引入React或Vue等框架，减少外部依赖 \\
+    \midrule
+实时通信 & HTTP轮询 & 前端每1.5秒拉取增量日志，实现简单且无需额外依赖 \\
+    \midrule
+容器管理 & Docker CLI（subprocess） & 通过docker-compose命令控制靶机环境的启停 \\
+    \midrule
+存储 & YAML配置 + JSONL结果 & 满足配置和测试结果的持久化需求 \\
+    \midrule
+CSS & 自定义属性 + Flexbox/Grid & 实现暗色主题的响应式布局 \\
+    \bottomrule
+\end{tabular}
+\end{table}
 
-当需要确保所有浮动体都已处理并开始新页面时，应优先使用 \verb|\clearpage| 而非 \verb|\newpage|，以防止浮动体累积至错误位置。
+\subsection{六个功能模块}
+
+\paragraph{控制台（Dashboard）}
+
+控制台承担总览功能。页面顶部用五张数据卡片分别展示漏洞总数、测试成功次数、测试失败次数（附成功率和平均耗时）、平均Token成本和当前使用的AI模型。中部左侧以状态机流程图的形式展示渗透测试的五个阶段（Scan → VulnSelect → Inquire → Exploit → Check），右侧放置快捷操作入口，便于用户直接跳转到渗透测试、靶机管理、漏洞库或系统设置页面。页面下方展示OWASP分类统计网格，按漏洞类型对基准库中的CVE进行分类计数。
+
+\paragraph{漏洞库（Vulns）}
+
+漏洞库页面展示系统基准测试集中的全部CVE漏洞条目。页面提供搜索框和难度筛选功能，用户可以按漏洞名称关键词检索或按"简单/复杂"分类过滤。每个漏洞以卡片形式呈现，展示漏洞名称、OWASP分类和难度等级；点击卡片弹出详情模态框，显示漏洞的完整描述，并提供"直接测试此漏洞"的快捷按钮，点击后自动跳转到渗透测试页面并预填漏洞名称。
+
+\paragraph{渗透测试面板（Attack）}
+
+渗透测试面板是使用频率最高的模块。新建任务时，用户从下拉框选择目标漏洞、填写目标IP地址，系统根据配置文件中设定的AI模型自动启动任务。任务启动后，页面右侧的日志区域以准实时方式（1.5秒轮询间隔）滚动展示执行日志，命令执行记录以代码样式高亮显示，错误和警告信息通过颜色区分。运行中的任务可通过"停止测试"按钮手动中断，任务完成后页面顶部的状态标签会更新为"成功"或"失败"。
+
+\paragraph{靶机管理（Docker）}
+
+靶机管理页面分为两个区域。上方的状态栏实时显示Docker服务的运行状态和当前活跃容器列表（包括容器ID、镜像名、运行状态、端口映射和容器名称）。下方以卡片网格形式展示所有可用的Docker Compose漏洞环境，每个环境卡片显示CVE编号和当前运行状态，提供启动、停止和销毁三种操作。启动操作会执行docker-compose up -d拉起环境，销毁操作会执行docker-compose down -v --rmi all彻底清理容器、数据卷和镜像。
+
+\paragraph{测试报告（Results）}
+
+测试报告页面汇总所有历史测试记录，以表格形式展示每次测试的时间、漏洞名称、目标IP、使用模型、测试结果、耗时和Token消耗。页面上方提供按难度和按结果的筛选按钮，支持按时间正序/倒序排序。表格下方是数据分析区域，包括：按难度分组的成功率对比（简单漏洞 vs 复杂漏洞）、各模型的平均Token成本排名、各模型的平均工具调用次数对比，以及每个漏洞在不同模型下的成功率矩阵。
+
+\paragraph{系统设置（Settings）}
+
+系统设置页面集中管理全局配置参数，包括：AI模型选择（支持GPT-3.5 Turbo、GPT-4o-mini、GPT-4o、通义千问等预设模型，也可输入自定义模型名称）、OpenAI兼容的API Base URL和API Key、模型温度参数（通过滑动条调节）。页面底部显示系统运行信息，包括Python版本、Docker可用性和版本、xray工具路径等环境检测结果。
+
+\subsection{后端接口}
+
+Web Console 后端采用 RESTful 风格设计，完整接口列表见附录\ref{app:api}。日志通道使用 HTTP 轮询机制，前端每隔 1.5 秒通过 \texttt{GET /api/task/logs/<id>?offset=N} 拉取增量日志条目，后端依据 offset 参数返回新增数据和当前总条数。与 WebSocket 相比，此方案实现简便，增量拉取也能满足日志展示对时效性的需求。
+
+\subsection{前端的几个技术细节}
+
+\paragraph{路由}
+
+为了让代码更精简，我们的前端没有引入React或Vue框架，而是用JavaScript写了一个单页应用。整个系统只有一个HTML页面，点击导航项时通过CSS的\texttt{active}类来控制哪块内容显示、哪块隐藏。核心路由代码通过\texttt{PAGE\_TITLES}和\texttt{PAGE\_LOADERS}两个映射表绑定页面与数据加载函数，完整代码见附录\ref{app:router}。
+
+\paragraph{实时日志渲染}
+
+前端使用HTTP轮询机制，每1.5秒拉取一次后端的增量日志，按日志内容中的关键字自动附加不同样式类型（错误、警告、系统），并对日志中的命令执行记录做专门的格式化处理。
+
+\paragraph{XSS防护}
+
+对于日志内容和Toast消息等来自后端或外部数据源的动态文本，前端通过\texttt{escapeHtml}函数在插入DOM前进行转义，利用浏览器DOM的\texttt{textContent}到\texttt{innerHTML}机制自动转义\texttt{<}、\texttt{>}、\texttt{\&}、\texttt{"}等特殊字符。
+
+\section{本章小结}
+
+本章围绕开题报告提出的三个核心问题，从流程控制、工具扩展和管理界面三个方面说明了改进系统的设计与实现。
+
+流程控制部分（3.2节，对应问题一）中，系统通过统一ReAct基线模板与角色差异化提示词规范了各Agent的输出格式和行为边界；将Scan阶段拆分为端口发现、服务知识匹配、漏洞扫描和结果评估四个子阶段并引入提前终止机制；通过工具输出即时摘要和三层结构化上下文组装实现了上下文压缩；设计了四层容错提取逻辑提升PoC获取的可靠性；改进了Check阶段的验证机制，将匹配域缩小至工具真实输出并引入LLM判断与正则兜底的双层校验。工具扩展部分（3.3节，对应问题二）中，系统新增了三个自定义浏览器扩展工具补足表单交互能力，实现了多级容错的ReAct解析器以适配思维链模型，并增强了ReadHTML工具的PoC自动提取能力。Web Console部分（3.4节，对应问题三）中，系统基于Flask和原生JavaScript实现了图形化管理界面，使常见操作不再依赖命令行。
+

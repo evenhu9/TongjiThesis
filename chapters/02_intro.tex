@@ -1,124 +1,85 @@
-\chapter{绪论}\label{chap:introduction}
 
-本章展示论文写作中常用的排版元素，包括标题层级、列表和字体等基础功能。在正式撰写毕业设计（论文）时，请将本章内容替换为实际的绪论内容，通常包括课题研究背景与意义、国内外研究现状综述、本文主要研究内容与组织结构等。
+\chapter{相关技术与理论基础}
 
-\section{标题层级示例}
+\section{LLM Agent技术}
 
-本模板按照同济大学规范配置了三级标题层级。编号体系因专业类别而异，由 \verb|main.tex| 中的 \texttt{field} 选项控制，具体对应关系如\tabref{tab:heading-levels}所示。官方撰写规范对三级以下标题不作强制要求，本模板仍配置了 \cs{subsubsection} 与 \cs{paragraph} 两级作为参考样式，可按需自行使用。
+\subsection{大语言模型与Agent范式}
 
-\begin{table}[htbp]
-  \centering
-  \caption{标题层级与编号体系（\texttt{field} 选项）}\label{tab:heading-levels}
-  \renewcommand{\arraystretch}{1.8}
-  \begin{tabular}{cclll}
-    \toprule
-    \textbf{层级} & \textbf{\LaTeX{} 命令} & \textbf{理工科（默认）} & \textbf{文科} & \textbf{示例（理工科）} \\
-    \midrule
-    1 & \texttt{\textbackslash chapter}    & 1, 2, 3      & 一、二、三   & {\heiti\tjfontchapter 1\quad 一级标题示例} \\
-    2 & \texttt{\textbackslash section}    & 1.1, 1.2     & （一）（二） & {\heiti\tjfontbody 1.1\hspace{0.5em}二级标题示例} \\
-    3 & \texttt{\textbackslash subsection} & 1.1.1, 1.1.2 & 1.\ 2.       & {\heiti\tjfontbody 1.1.1\hspace{0.5em}三级标题示例} \\
-    \bottomrule
-  \end{tabular}
-\end{table}
+大语言模型（Large Language Model，LLM）是基于Transformer架构\cite{Vaswani2017Attention}训练的大规模神经网络语言模型，通过在海量语料上进行预训练，在文本理解、代码生成、逻辑推理和知识问答等任务上表现出色。GPT-4\cite{OpenAI2024GPT4}、DeepSeek\cite{DeepSeekAI2024DeepSeekV3}等模型在多项自然语言处理上达到或超过人类水平。
 
-二级标题用于划分各章的主要内容板块。例如，在绪论中可使用二级标题分别介绍“研究背景与意义”、“国内外研究现状”和“本文组织结构”等。
+Agent（智能体）在此基础上继续发展，将LLM由问答工具扩展为任务执行者。LLM Agent通常包含三个核心部分：感知模块接收环境数据和用户指令，决策模块推理出下一步动作，执行模块调用工具完成具体操作。Agent可以在没有人为干预的情况下自主执行多步骤的目标导向任务。
 
-\subsection{三级标题示例}
+\subsection{ReAct框架}
 
-三级标题用于在二级标题下进一步细分内容，例如在“国内外研究现状”下分别介绍国内和国外的研究进展。在实际论文写作中，通常不建议使用超过三级的标题层级，以保持文章结构的清晰性。
-
-\section{列表}
-
-列表是论文中常用的排版元素，本节展示无序列表和有序列表的使用方法。有序列表的编号格式已按照同济大学毕业设计（论文）撰写规范进行配置。
-
-\subsection{无序列表}
-
-无序列表适用于列举不需要特定顺序的内容，使用 \texttt{itemize} 环境实现。
+ReAct（Reasoning and Acting）\cite{Yao2022ReAct}是Yao等人提出的一种将推理（Reasoning）与行动（Acting）交替进行的Agent执行框架。在ReAct框架中，Agent的每一步执行由三个要素组成：
 
 \begin{itemize}
-    \item 同济大学概述：同济大学是一所以工科著称的综合性大学，具有深厚的历史和优秀的教学资源，是中国著名的高等学府之一，享有盛誉。
-    \begin{itemize}
-        \item 创建于1907年：同济大学始建于1907年，是中国历史最悠久的大学之一，拥有悠久的历史和丰富的文化底蕴；
-        \item 位于上海市：校园位于中国上海市，这里是中国经济和文化的重要中心，为学生提供了广阔的发展空间，是学习和生活的理想之地，也是中国高等教育的重要基地；
-        \item 以工科著称：同济大学在工程学科方面享有盛誉，是中国顶尖的工科学府之一，培养了大批优秀的工程技术人才，为国家的工程建设和科技创新做出了重要贡献。
-    \end{itemize}
-    \item 校园文化：同济大学注重校园文化建设，营造了丰富多彩的校园生活。这里的文化活动多样，包括学生社团、艺术节、体育赛事等，为学生提供了展示才华和发展兴趣的平台。
-    \item 学术成就：同济大学在多个领域取得了显著的学术成就，培养了大批优秀人才。学校在科学研究、技术创新和社会服务方面都有突出的表现，为国家和社会的发展做出了重要贡献。
+  \item Thought（推理）：Agent对当前状态进行分析，决定下一步应当采取的行动；
+  \item Action（行动）：Agent调用一个外部工具执行具体操作；
+  \item Observation（观察）：工具返回执行结果，Agent将其纳入上下文继续推理。
 \end{itemize}
 
-\subsection{有序列表}
+这三个要素组成一轮迭代过程，Agent 经过多轮Thought-Action-Observation循环逐步推进任务，直到产生Final Answer。与纯思维链推理方案相比，ReAct让Agent在每一步都能拿到工具的真实信息再做判断，减少了幻觉问题；与纯行动方案相比，显式的Thought步骤使决策过程可追溯。
 
-有序列表适用于列举需要按顺序排列的内容，使用 \texttt{enumerate} 环境实现。
+\subsection{LangChain与LangGraph}
 
-需要注意的是，根据同济大学提供的理工科毕业设计（论文）撰写规范，有序列表的第一级编号应使用全角圆括号内的数字，如“（1）”、“（2）”等；第二级编号应使用圆圈内的阿拉伯数字，如“\Circled{1}”、“\Circled{2}”等。此外，有序列表的第二级应为行内列表，即不应另起一行，而应与上一级列表项在同一行内；我们在写 \LaTeX{} 代码时，应该使用 \texttt{enumerate*} 环境来实现有序列表的第二级。
+LangChain\cite{LangChain}是当前最广泛使用的LLM应用开发框架，它提供了对多种LLM的统一接口、工具调用抽象以及ReAct Agent的标准实现。LangChain通过create\_react\_agent函数创建Agent，将提示词模板、工具列表和LLM 名称作为参数接收，由AgentExecutor驱动执行循环。LangChain内置的ReActSingleInputOutputParser 能够从LLM的输出中解析Action和Action Input字段，得到工具调用指令。
 
-\begin{enumerate}
-    \item 同济大学历史：同济大学是中国著名的高等学府之一，拥有悠久的历史和丰富的文化底蕴。以下是同济大学的重要历史节点：
-    \begin{enumerate*}
-        \item 1907年：创建，最初为德文医学堂；
-        \item 1927年：成为国立大学，更名为同济大学；
-        \item 1952年：调整学科设置，成为以工科为主的综合性大学。
-    \end{enumerate*}
-    \item 学术体系：同济大学在学术方面具有很高的声誉，涵盖多个重要学科领域。主要学科包括：
-    \begin{enumerate*}
-        \item 工程学，包括土木工程、建筑工程、机械工程等；
-        \item 建筑学，包括建筑设计、城市规划等；
-        \item 医学，包括临床医学、药学等。
-    \end{enumerate*}
-    \item 国际合作：同济大学积极参与国际交流与合作，拓展全球视野，提升国际影响力。主要的合作项目包括：
-    \begin{enumerate*}
-        \item 德国交流项目，包括学生交换、教师访问等；
-        \item 全球合作伙伴，包括国际知名大学、科研机构等；
-        \item 国际学术会议，包括学术研讨会、国际学术交流等。
-    \end{enumerate*}
-\end{enumerate}
+LangGraph是LangChain生态中用于构建多Agent和复杂工作流的框架，是基于有向图的编程范式，支持定义节点（Agent或函数）、边（状态转移）和条件分支（动态路由）。LangGraph的核心抽象是StateGraph，开发者可以通过add\_node添加处理节点，通过add\_conditional\_edges定义基于状态的条件路由，从而构建灵活的多阶段执行流程。AutoPT的渗透测试状态机（PSM）即基于LangGraph实现，将Scan、VulnSelect、Inquire、Exploit、Check五个阶段建模为图中的节点，通过条件边控制状态转移。
 
-\section{字体}
+\section{自动化渗透测试技术}
 
-本模板正文默认使用宋体，标题使用黑体。以下展示模板中可用的中文字体及其效果：
+\subsection{渗透测试基本流程}
 
-\begin{itemize}
-    \item {\songti 宋体}：使用命令 \texttt{\textbackslash songti}。
-    \item {\heiti 黑体}：使用命令 \texttt{\textbackslash heiti}。
-    \item {\fangsong 仿宋}：使用命令 \texttt{\textbackslash fangsong}。
-    \item {\kaishu 楷书}：使用命令 \texttt{\textbackslash kaishu}。
-\end{itemize}
+渗透测试（Penetration Testing）通过模拟攻击者行为来评估目标系统的安全性。一次完整的渗透测试通常包含以下阶段\cite{Liu2024AutoScan}\cite{Wu2023PenTest}：
 
-\subsection{字号设置}
+（1）信息收集与侦察。使用端口扫描（如nmap）、服务指纹识别、目录遍历等手段，摸清目标系统的开放端口、运行服务、操作系统类型和Web应用框架。
 
-本模板已按照同济大学毕业设计（论文）撰写规范预设了各部分的字号，一般无需手动调整。如有特殊需要，可使用 \verb|\zihao{}| 命令设置字号，例如 \verb|\zihao{-4}| 表示小四号。常用字号对应关系如\tabref{tab:font-sizes}所示。
+（2）漏洞发现与分析。在信息收集的基础上，使用漏洞扫描工具（如xray、Nessus）对目标进行自动化扫描，或结合已知漏洞数据库（如NVD、ExploitDB）手动比对，识别目标系统可能存在的安全缺陷。
 
-\begin{table}[htbp]
-  \centering
-  \caption{常用字号对照}\label{tab:font-sizes}
-  \begin{tabular}{ccl}
-    \toprule
-    \textbf{字号命令} & \textbf{字号名称} & \textbf{用途} \\
-    \midrule
-    \texttt{\textbackslash zihao\{-2\}} & 小二号 & 课题名称、摘要页标题 \\
-    \texttt{\textbackslash zihao\{-3\}} & 小三号 & 章标题、封面字段值 \\
-    \texttt{\textbackslash zihao\{3\}}  & 三号   & 摘要副标题（\texttt{\textbackslash tjfontinfotitle}：信息说明页标题） \\
-    \texttt{\textbackslash zihao\{4\}}  & 四号   & 摘要、目录、参考文献、谢辞标题 \\
-    \texttt{\textbackslash zihao\{-4\}} & 小四号 & 正文、节标题、页眉页脚、目录内容、公式 \\
-    \texttt{\textbackslash zihao\{5\}}  & 五号   & 脚注、装订线文字 \\
-    \texttt{\textbackslash zihao\{-5\}} & 小五号 & 表题、图题、表内文字 \\
-    \bottomrule
-  \end{tabular}
-\end{table}
+（3）漏洞利用。根据发现的漏洞，从公开渠道获取或编写PoC（Proof of Concept）代码，对目标系统实施攻击，尝试获取系统权限、读取敏感文件或执行任意命令。
 
-\subsection{文字样式}
+（4）结果验证与报告。确认漏洞利用是否成功，收集利用证据（如打印/etc/passwd 文件内容、命令执行输出等），生成渗透测试报告。
 
-常用的文字样式命令包括：\textbf{加粗}（\verb|\textbf{}|）、\textit{斜体}（\verb|\textit{}|）、\underline{下划线}（\verb|\underline{}|）以及\emph{强调}（\verb|\emph{}|）。在中文环境下，\verb|\emph{}| 会自动切换为楷书以示强调。
+传统渗透测试中，上述每个阶段都依赖安全人员的专业判断和手工操作。自动化渗透测试的目标是将其中可以程序化的部分交由系统完成，减少对人工的依赖。
 
-{\songti
+\subsection{常用渗透测试工具}
 
-【宋体示例】1900年前后，由埃里希·宝隆创办的“同济医院”正式挂牌。医院的医师大都是“德医公会”成员。他们白天忙于经营自己的诊所，只有傍晚到医院看门诊、动手术。埃里希·宝隆医生看到医院里的医疗力量不足，计划在院内设立一所德文医学堂，招收中国学生，以培养施诊医生。这个计划得到德国驻沪总领事以及德国政府高等教育司的支持。1906年，他们设立了一个支持医学堂开办的基金会，得到了德国“促进德国与外国思想交流的科佩尔基金会”的协助，筹集到一批医科书刊及新式的外科手术电动器械等物品。}
+本系统在不同阶段用到了以下工具。
 
-{\heiti 【黑体示例】1907年6月医学堂开学前，德国驻沪总领事克纳佩在上海不仅号召德国商人捐款，而且要求德国洋行向中国商人募捐。同时，费舍尔还要求中国官方的资助和支持，克纳佩利用在中德两国募来的捐款，成立了“为中国人办的德国医学堂基金会”。当时规定，捐款金额较多者可成为医学堂董事会董事。医学堂建立时定名为德文医学堂，并成立了董事会负责学校的管理。董事会由18人组成，主要成员有：三个德医公会元老：宝隆、福沙伯（第二任校长）、福尔克尔；三名德国商人：莱姆克、米歇劳和赖纳；两名中国绅商：朱葆三（沪军都督府财政部长及上海商务会会长，大买办）、虞洽卿（荷兰银行买办）；总领事馆的副领事弗赖海尔·冯·吕特等。埃里希·宝隆医生被正式推选为董事会总监督（董事长）兼学堂首任总理（校长），负责学堂的管理。医学堂的校址设在同济医院对面的白克路（今凤阳路415号上海长征医院内）。1907年10月1日德文医学堂举行了开学典礼。}
+nmap是渗透测试中最常见的网络扫描工具，覆盖端口发现、服务版本识别和操作系统指纹检测。典型用法是先用-sS -p-对目标做全端口SYN扫描，找到开放端口后再用-sV -sC识别各端口上运行的服务版本并执行默认NSE脚本。
 
-{\ifcsname fangsong\endcsname\fangsong【仿宋示例】\else[无 \cs{fangsong} 字体。]\fi
-1923年3月17日北洋政府教育部下达第108号训令，批准同济工科“改为大学”。学校随即召开董事会议，将学校定名为“同济大学”。1923年3月26日，学校以“同济大学董事会”名义呈文北洋政府教育部，称“经校董会议定名称为同济大学”。1923年4月24日，北洋政府教育部下达第634号“指令”，称“该校名称拟改为同济大学，应予照准备案”。1924年5月20日北洋政府教育部下达第120号训令，批准同济医科为大学。从此以后，5月20日定为校庆日。}
+xray是一款Web漏洞扫描器，可检测SQL注入、XSS、命令注入、文件读取等Web漏洞，有主动扫描和被动代理两种工作模式。本系统用它的主动扫描模式（xray ws --url）对目标HTTP服务做漏洞检测。
 
-{\ifcsname kaishu\endcsname\kaishu【楷书示例】\else[无 \cs{kaishu} 字体。]\fi
-抗日战争胜利后，1946年，国立同济大学分批迁回上海。由于缺少校舍，学校分散教学，成为斜跨上海市区、分散十多处的“大学校”。其中学校办公室和医学院位于善钟路100弄10号（今常熟路），附属医院分别为白克路上的中美医院（原宝隆医院，今凤阳路）和同孚路82号（今石门一路）的原德国医院，理学院在平昌街日本第七国民学校内（今国顺路上海电视大学），文法学院在四川北路（今复兴初级中学），新生院位于江湾新市区的市图书馆（今黑山路），高级工业职业学校则在江湾魏德迈路（今邯郸路），附属中学位于市博物馆（今长海医院飞机楼）。工学院位于其美路的原日本中学（今杨浦区四平路1239号），1949年后逐步发展成同济大学的主校区。}
+Playwright是微软开源的浏览器自动化框架，支持Chromium、Firefox和WebKit三种浏览器引擎。在渗透测试中，它主要用来模拟用户的浏览器操作，包括页面导航、表单填写、按钮点击等,处理那些需要Web界面交互才能完成的漏洞利用步骤。
+
+\section{渗透测试状态机（PSM）}
+
+\subsection{PSM的形式化定义}
+
+AutoPT\cite{Wu2024AutoPT}用有限状态机（Finite State Machine，FSM）来描述渗透测试的执行流程，称之为渗透测试状态机（PSM）。其形式化定义是一个五元组：
+
+PSM = (S, A, T, s₀, F)
+
+S是状态集合，对应渗透测试中的各个阶段；A是动作集合，主要就是调用各种安全测试工具；T是状态转移函数（T: S×A→S），决定执行某个动作之后系统该跳到哪个状态；s₀是初始状态，F是终止状态集合。这套定义把一个本来连续的、难以把控的渗透测试过程拆成了离散的阶段，每个阶段该做什么、什么时候算结束都有了明确的界定。
+
+\subsection{AutoPT的PSM状态设计}
+
+AutoPT的PSM由五个状态串联而成，依次覆盖了信息收集、漏洞筛选、情报检索、漏洞利用和结果验证几个环节。Scan负责端口扫描和服务识别，输出攻击面信息；VulnSelect从扫描结果里筛选出值得尝试的漏洞；Inquire在正式利用之前去GitHub等外部渠道检索对应的PoC和利用方法；Exploit拿着这些信息执行具体的漏洞利用操作；Check验证利用是否成功，如果失败了，可以回退到Exploit换个方式再试，或者跳回VulnSelect换一个漏洞。
+
+整个状态机基于LangGraph实现，五个状态各自是图中的一个节点，节点之间的跳转由路由函数根据当前状态的输出动态决定。阅读AutoPT的源码可以发现，Check阶段的这个回退设计是它和纯线性流程最大的区别，Agent不会因为一次利用失败就直接退出，而是有机会调整方向重新来过。
+
+\subsection{原始PSM的局限性}
+
+虽然AutoPT通过PSM对渗透测试流程进行了结构化约束，但在实际复现几组实验后，我们发现它还有几处明显的缺陷。
+
+（1）状态粒度较粗。Scan状态把端口扫描和漏洞初筛混合在一起，一旦其中某个环节出问题，很难判断到底卡在哪一步。
+
+（2）状态转移条件过于固定。各状态之间基本按预定义的顺序推进，即使Scan阶段什么都没扫到，系统仍会构造一个占位语句传递给下游，后续的Inquire和Exploit阶段会跟着白跑一轮，造成不必要的Token消耗。
+
+（3）各Agent的提示词缺乏统一规范和角色区分，导致输出格式不稳定，Scan Agent有时候会越权去执行利用命令，Inquire Agent偶尔也会调用不属于它的工具。
+
+（4）工具体系有缺口。Playwright工具包在原版本中没有表单填写和下拉框选择等功能，当遇到需要安装向导来配置环境的漏洞利用情况时，Agent就无法进行前置操作。ReAct解析器不能处理格式偏差，当使用思维链（Chains of Thought, CoT）模型进行分析时经常出现解析失败的情况。
+
+第三章将针对上述四个问题分别给出改进方案。
 

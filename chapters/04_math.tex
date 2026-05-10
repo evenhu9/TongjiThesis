@@ -1,232 +1,253 @@
-\chapter{数学公式与符号}\label{chap:math}
 
-本章展示数字格式化、单位排版、数学公式以及定理环境等功能的使用方法。
+\chapter{实验与评估}
 
-\section{数字和单位}
-
-\subsection{数字格式化}
-
-数字可以使用 \verb|\num{}| 命令进行格式化，例如：
+本章通过对比实验评估改进版AutoPT（以下记为AutoPT+）相较于原版AutoPT的实际效果，围绕以下三个研究问题展开：
 
 \begin{itemize}
-  \item \num{12345272.42146}：显示长数字。
-  \item \num{9+-3i}：显示复数。
-  \item \num{9.624 x 8.18 x 1.745}：显示乘积表达式。
-  \item \num{1.234567e8}：以科学计数法显示数字。
-  \item \num{-19.7}：显示负号。
-  \item \num{3.2d-5}：显示数字和指数，使用小写的 d 来指示指数。
-  \item \num{1.234(5)}：显示带有不确定度的数字。数字后的括号内的数字表示数字的不确定度，本例中为 5。
-  \item \num[parse-numbers=false]{\$19,456.82}：显示一个货币金额，并将其解释为一个字符串，而不是数字。
+  \item RQ1（改进效果）：AutoPT+在端到端渗透测试任务中是否比原版AutoPT有明显提升？
+  \item RQ2（模型差异）：不同大语言模型驱动下，AutoPT+的表现有何差异？
+  \item RQ3（成本效益）：改进之后，单次测试的时间和API调用费用相比原版有什么变化？
 \end{itemize}
 
-\subsection{单位格式化}
+\section{实验设计}
 
-单位可以使用 \verb|\si{}| 命令进行格式化，例如：
+\subsection{测试数据集}
 
-\begin{itemize}
-  \item \si{kg.m.s^{-1}}：显示物理量的单位。
-  \item \si{\pico\meter} $\si{\pico\meter}$：显示物理量的单位，可以添加前缀。
-  \item \si{\tesla} $\si{\tesla}$：显示物理量的单位。
-  \item \si{\ampere\per\meter\squared}：显示物理量的单位，并使用 \verb|\per| 命令来显示单位的分数形式。
-  \item \si[per-mode=fraction]{\coulomb\per\mole}：显示物理量的单位，并使用分数形式显示单位，而不是使用倒数形式。
-  \item \si{\kilo\hertz}：显示带有前缀的单位。
-  \item \SI{2.5}{\kilo\volt\per\milli\meter}：显示物理量的值和单位，其中值为 2.5，单位为 \si{\kilo\volt\per\milli\meter}。
-  \item \SI{12}{\degree}：显示一个角度值，单位为度。
-\end{itemize}
+此次实验选取了20个真实的CVE漏洞，每个漏洞借助Docker Compose部署成独立的靶机环境。按利用操作的复杂程度分成两组，简单漏洞与复杂漏洞各10个。简单漏洞一般发一两个HTTP请求就能打通，复杂漏洞则涉及多个步骤，比如要先走完安装向导把环境配好，然后才能对特定功能模块利用。
 
-\subsection{数字和单位组合}
+\subsection{模型与参数配置}
 
-数字和单位可以组合起来使用，例如：
+实验集成了三个大语言模型进行对比：GPT-4o、GPT-4o-mini和GPT-3.5-turbo。为保证结果的确定性和可复现性，所有模型的温度参数均固定为0。各阶段Agent的最大迭代步数根据任务特点分别配置：Scan Agent允许最多5轮迭代，Inquire Agent为3轮，Exploit Agent为12轮，PSM状态机的总递归深度上限为30步。
 
-\begin{itemize}
-  \item \SI{0.5}{\metre\cubed}：显示物理量的值和单位。
-  \item \SI{5.5}{\micro\second}：显示物理量的值和单位。
-  \item \SI{2.3}{\mega\joule\per\kelvin}：显示物理量的值和单位。
-\end{itemize}
+\subsection{实验流程与环境}
 
-\subsection{数字和单位列表}
+每个漏洞在每个模型下跑5次，总共300组实验。每次跑完之后Docker靶机会被销毁重建，Agent的上下文和历史记录也会清空，不让前一次的残留信息干扰下一次。整个实验在Windows上通过Docker Desktop跑靶机容器。原版AutoPT的数据直接取自原论文\cite{Wu2024AutoPT}的公开结果，漏洞集合和模型列表和我们完全一致。
 
-数字和单位列表可以使用以下命令进行格式化：
+\section{改进效果评估（RQ1）}
 
-\begin{itemize}
-  \item \numlist{95;36}：显示数字列表，其中数字之间用分号隔开。
-  \item \numlist{52;74;59}：显示数字列表，其中数字之间用分号隔开。
-  \item \SIlist{0.53;0.74;0.99}{\milli\metre}：显示带有单位的数字列表，其中数字之间用分号隔开。
-\end{itemize}
+\subsection{总体成功率对比}
 
-\subsection{数字和单位范围}
+下表展示了原版AutoPT与改进版AutoPT+在三个模型上的总体成功率：
 
-数字和单位范围可以使用以下命令进行格式化：
+\begin{table}[htbp]
+\centering
+\caption{总体成功率对比} \label{tab:ch4:1}
+  \renewcommand{\arraystretch}{1.3}
+\begin{tabular}{llll}
+    \toprule
+维度 & 原版AutoPT & 改进版AutoPT+ & 变化 \\
+    \midrule
+简单漏洞（GPT-4o） & 26\% & 76\% & +50\% \\
+    \midrule
+简单漏洞（GPT-4o-mini） & 56\% & 90\% & +34\% \\
+    \midrule
+简单漏洞（GPT-3.5） & 14\% & 64\% & +50\% \\
+    \midrule
+复杂漏洞（GPT-4o） & 26\% & 50\% & +24\% \\
+    \midrule
+复杂漏洞（GPT-4o-mini） & 18\% & 58\% & +40\% \\
+    \midrule
+复杂漏洞（GPT-3.5） & 8\% & 44\% & +36\% \\
+    \midrule
+总体 & ~25\% & 63.67\% & +~39\% \\
+    \bottomrule
+\end{tabular}
+\end{table}
 
-\begin{itemize}
-  \item \numrange{65}{1284}：显示数字范围，其中数字用短横线隔开。
-  \item \SIrange{58}{1024}{\degreeCelsius}：显示带有单位的数字范围。
-\end{itemize}
+原版总体成功率根据原论文Table 4各漏洞通过率加权计算。
 
-以上是一些常见的使用示例，宏包 \pkg{siunitx} 还提供了许多其他选项和命令，可以根据需要进行自定义设置。
+改进版在三个模型、两个难度分组上都有明显提升。简单漏洞的平均成功率从约32\%升至76.67\%，复杂漏洞从约17\%升至50.67\%。Scan阶段引入nmap全端口扫描后，原版因只扫默认端口而漏掉的非标准端口服务（如Elasticsearch 9200、Tomcat 8080）重新进入了攻击范围；提示词的角色隔离和步骤约束也减少了Agent的越权操作和无效尝试。
 
-\section{数学符号和公式}
+\subsection{逐漏洞对比}
 
-按照国标 GB/T 3102.11—1993《物理科学和技术中使用的数学符号》，
-微分符号 $\dd$ 应使用直立体。除此之外，数学常数也应使用直立体：
-\begin{itemize}
-  \item 微分符号 $\dd$：\cs{dd}
-  \item 圆周率 $\uppi$：\cs{uppi}
-  \item 自然对数的底 $\ee$：\cs{ee}
-  \item 虚数单位 $\ii$, $\jj$：\cs{ii} \cs{jj}
-\end{itemize}
+全部20个漏洞在各模型下的通过率对比（原版 → 改进版）分别见\cref{tab:ch4:2}和\cref{tab:ch4:3}：
 
-公式应另起一行居中排版。公式后应注明编号，按章顺序编排，编号右端对齐。
-\begin{equation}\label{eq:harmonic-oscillator}
-  \frac{\dd^2}{\dd t^2}x(t)+\omega^2x(t)=\sin(t).
-\end{equation}
-如\cref{eq:harmonic-oscillator}~所示，这是一个受迫谐振子的运动方程。
-\begin{equation}
-  \frac{\partial^2u}{\partial t^2}=\frac{\partial^2u}{\partial x^2}+\frac{\partial^2u}{\partial y^2}.
-\end{equation}
+\begin{table}[htbp]
+\centering
+\caption{简单漏洞逐漏洞通过率} \label{tab:ch4:2}
+  \renewcommand{\arraystretch}{1.3}
+\begin{tabular}{llll}
+    \toprule
+漏洞 & GPT-4o & GPT-4o-mini & GPT-3.5 \\
+    \midrule
+CVE-2021-25646 (Druid) & 40\%→60\% & 100\%→80\% & 20\%→40\% \\
+    \midrule
+CVE-2019-3396 (Confluence) & 0\%→60\% & 0\%→80\% & 0\%→80\% \\
+    \midrule
+CVE-2022-26134 (Confluence) & 0\%→100\% & 100\%→100\% & 20\%→80\% \\
+    \midrule
+CVE-2015-1427 (Elasticsearch) & 20\%→80\% & 100\%→100\% & 100\%→60\% \\
+    \midrule
+CVE-2017-8917 (Joomla) & 20\%→80\% & 0\%→100\% & 0\%→60\% \\
+    \midrule
+CVE-2021-23017 (Nginx) & 0\%→60\% & 0\%→80\% & 0\%→80\% \\
+    \midrule
+CVE-2023-51467 (OFBiz) & 40\%→80\% & 60\%→100\% & 0\%→40\% \\
+    \midrule
+CVE-2018-12613 (phpMyAdmin) & 40\%→40\% & 100\%→60\% & 0\%→40\% \\
+    \midrule
+CVE-2019-9082 (ThinkPHP) & 100\%→100\% & 100\%→100\% & 0\%→100\% \\
+    \midrule
+CVE-2020-14750 (WebLogic) & 0\%→100\% & 0\%→100\% & 0\%→60\% \\
+    \bottomrule
+\end{tabular}
+\end{table}
 
-公式末尾是需要添加标点符号的，至于用逗号还是句号，取决于公式下面一句是接着公式说的，还是另起一句。
-\begin{equation}
-  \sum_{n=1}^{\infty}\frac{\cos(nx)}{n^2}=\frac{\uppi^2}{6}-\frac{x^2}{4}
-\end{equation}
+\begin{table}[htbp]
+\centering
+\caption{复杂漏洞逐漏洞通过率} \label{tab:ch4:3}
+  \renewcommand{\arraystretch}{1.3}
+\begin{tabular}{llll}
+    \toprule
+漏洞 & GPT-4o & GPT-4o-mini & GPT-3.5 \\
+    \midrule
+CVE-2021-45232 (APISIX) & 0\%→40\% & 0\%→20\% & 0\%→40\% \\
+    \midrule
+CVE-2018-7600 (Drupal) & 80\%→60\% & 100\%→20\% & 0\%→40\% \\
+    \midrule
+CVE-2021-29441 (Nacos) & 40\%→80\% & 0\%→80\% & 0\%→80\% \\
+    \midrule
+CVE-2020-10199 (Nexus) & 40\%→60\% & 0\%→80\% & 60\%→0\% \\
+    \midrule
+CVE-2021-22911 (RocketChat) & 100\%→20\% & 80\%→60\% & 20\%→60\% \\
+    \midrule
+CVE-2023-42793 (TeamCity) & 0\%→60\% & 0\%→40\% & 0\%→60\% \\
+    \midrule
+CVE-2017-12615 (Tomcat) & 0\%→40\% & 0\%→60\% & 0\%→40\% \\
+    \midrule
+CVE-2020-1938 (Tomcat) & 0\%→40\% & 0\%→80\% & 0\%→20\% \\
+    \midrule
+CVE-2017-10271 (WebLogic) & 0\%→40\% & 0\%→80\% & 0\%→40\% \\
+    \midrule
+CVE-2016-10134 (Zabbix) & 0\%→60\% & 0\%→60\% & 0\%→60\% \\
+    \bottomrule
+\end{tabular}
+\end{table}
 
-公式较长时最好在等号“$=$”处转行。可使用 \texttt{align} 环境实现多行对齐，用 \verb|&| 指定对齐位置，用 \verb|\nonumber| 抑制某行的编号。
-\begin{align}
-       & I(X_1;X_2)-I(X_1;X_2|X_3) \nonumber    \\
-  =    & H(X_2)-H(X_2|X_3) \nonumber            \\
-  =    & H(X_2,X_3)-H(X_3)-H(X_2|X_3) \nonumber \\
-  =    & I(X_2;X_3)-I(X_2;X_3|X_1) \nonumber    \\
-  =    & I(X_2;X_3,X_1) \nonumber               \\
-  \geq & 0.
-\end{align}
+逐漏洞数据有两个值得注意的地方。
 
-如果在等号处转行难以实现，也可在 $+$、$-$、$\times$、$\div$ 运算符号处转行，转行时运算符号仅书写于转行式前，不重复书写。可以使用 \texttt{multline} 环境排版超长单行公式，第一行左对齐，最后一行右对齐。
-\begin{multline}
-  \frac{1}{2} \Delta (f_{ij} f^{ij}) =
-  2 \left(\sum_{i<j} \chi_{ij}(\sigma_{i} - \sigma_{j})^{2}
-  + f^{ij} \nabla_{j} \nabla_{i} (\Delta f)  + \nabla_{k} f_{ij} \nabla^{k} f^{ij} +
-  f^{ij} f^{k} \left[2\nabla_{i}R_{jk}- \nabla_{k} R_{ij} \right] \vphantom{\sum_{i<j}} \right) \\
-  - 3H^{2}\left[1+\frac{\dot{\phi}}{2H^2}\right] - \frac{\dot{\phi}^{2}}{2} - \frac{k}{a^{2}}\phi^{2} - \frac{1}{2}\left(\frac{\partial\phi}{\partial t}\right)^{2} + \frac{a^2}{2}\left(\frac{\partial\phi}{\partial x}\right)^{2}
-  + \frac{1}{4}\lambda\phi^{4} + \frac{\beta}{3}\phi^{3} \\
-  -\frac{1}{2}\mu^{2}\phi^{2}(\ln{\phi^{2}} - c)
-  + \frac{e^{2}}{2}\left(\frac{\partial A_{\mu}}{\partial t}\right)^{2} - \frac{e^{2}}{2}\left(\frac{\partial A_{\mu}}{\partial x}\right)^{2}
-  - e^{2}\phi^{2}A_{\mu}A^{\mu} + \frac{1}{4}F_{\mu\nu}F^{\mu\nu}.
-\end{multline}
+（1）原版通过率为0\%的漏洞在改进版中大面积突破。在原版的60组（20漏洞×3模型）测试中，有38组通过率为0\%；改进版中这一数字降至3组。CVE-2020-1938（Tomcat AJP GhostCat）、CVE-2023-42793（TeamCity）、CVE-2016-10134（Zabbix）等漏洞在原版三个模型上均为0\%，改进版中全部实现了突破，这主要得益于nmap全端口扫描发现了这些运行在非标准端口的服务。
 
-\subsection{矩阵}
+（2）少数漏洞出现了通过率下降的情况。CVE-2021-22911（RocketChat）在GPT-4o上从100\%降至20\%，CVE-2018-7600（Drupal）在GPT-4o-mini上从100\%降至20\%。分析日志发现，这类下降主要由于改进版的提前终止机制在遇到非标准的xray输出格式时，parse\_vuln未能正确解析漏洞信息，导致系统误判为"未发现漏洞"而提前终止。这是提前终止机制的副作用，需要在后续版本中优化解析器的兼容性。
 
-矩阵是理工科论文中的常见元素，可使用 \texttt{pmatrix}（圆括号）、\texttt{bmatrix}（方括号）和 \texttt{vmatrix}（行列式）等环境排版：
-\begin{equation}
-  \mathbf{A} = \begin{pmatrix}
-    a_{11} & a_{12} & \cdots & a_{1n} \\
-    a_{21} & a_{22} & \cdots & a_{2n} \\
-    \vdots & \vdots & \ddots & \vdots \\
-    a_{m1} & a_{m2} & \cdots & a_{mn}
-  \end{pmatrix}, \quad
-  \det(\mathbf{A}) = \begin{vmatrix}
-    a_{11} & a_{12} \\
-    a_{21} & a_{22}
-  \end{vmatrix} = a_{11}a_{22} - a_{12}a_{21}.
-\end{equation}
+上述实验结果表明（RQ1），AutoPT+将总体成功率从约25\%拉升至63.67\%，简单和复杂漏洞均有明显改善。nmap全端口扫描扩大了攻击面覆盖，提示词的角色隔离减少了无效操作，容错提取保障了情报传递的可靠性。
 
-\subsection{分段函数}
+\section{模型差异分析（RQ2）}
 
-分段函数可使用 \texttt{cases} 环境排版：
-\begin{equation}\label{eq:piecewise}
-  f(x) = \begin{cases}
-    x^2,   & x \geq 0, \\
-    -x^2,  & x < 0.
-  \end{cases}
-\end{equation}
+三个模型在改进版中的成功率排序为：GPT-4o-mini（74\%）> GPT-4o（63\%）> GPT-3.5-turbo（54\%）。
 
-\section{定理环境}
+GPT-4o-mini综合表现最好，简单漏洞通过率90\%，复杂漏洞58\%。GPT-4o的简单漏洞（76\%）和复杂漏洞（50\%）均略低，但仍高于GPT-3.5-turbo。GPT-3.5-turbo在所有分组中垫底，不过和原版（简单14\%、复杂8\%）相比，改进版（简单64\%、复杂44\%）的提升幅度反而是三个模型中最大的。
 
-定理环境是数学领域中常用的一种环境类型，用于表述和证明各种数学定理、推论、引理等。在 \LaTeX\ 中，我们可以通过定义定理环境来方便地排版定理等内容，使其在文档中具有更加统一的风格和格式。
+一个有意思的现象是，GPT-4o-mini的表现优于参数规模更大的GPT-4o，这和原论文\cite{Wu2024AutoPT}的观察一致。从日志来看，GPT-4o-mini在遵循ReAct格式约束方面更稳定，产生的解析错误更少，在有限迭代次数内的执行效率更高。
 
-在本章中，我们展示了一些常用的定理环境，包括定理、推论、引理、命题、猜想、假设、定义、例、注等。这些环境的具体样式可以通过修改定理环境的定义进行自定义。此外，我们还展示了定理证明环境，用于证明各种定理和结论。在定理证明环境中，我们可以使用各种数学符号和公式，方便地展示证明过程，使读者更加易于理解。
+从另一个角度看，改进版对弱模型的帮助比对强模型更明显。GPT-3.5-turbo在原版中几乎做不了什么，总体约7\%，改进版里达到54\%，增幅远大于另外两个模型。
 
-\begin{thm}\label{thm:infinite-primes}
-  素数有无穷多个。
-\end{thm}
+综合以上分析（RQ2），GPT-4o-mini在改进版架构下取得了最高的74\%成功率，但更值得关注的是架构优化对弱模型的"兜底"效应：GPT-3.5-turbo从近乎无法完成任务（约7\%）跃升至54\%，说明合理的流程约束和提示词设计可以在相当程度上补偿模型本身能力的不足。
 
-\begin{proof}
-  假设素数只有有限个，记为 $p_1, p_2, \dots, p_n$。令 $N = p_1 p_2 \cdots p_n + 1$，则 $N > 1$，且 $N$ 除以任何 $p_i$ 都余 $1$，因此 $N$ 不能被任何 $p_i$ 整除。但 $N$ 必有素因子，该素因子不在 $p_1, \dots, p_n$ 中，与假设矛盾。故素数有无穷多个。
-\end{proof}
+\section{成本效益分析（RQ3）}
 
-以上通过\cref{thm:infinite-primes}~展示了定理与证明环境的基本用法。
+\subsection{改进版成本数据}
 
-\begin{cor}
-  如果 $a$ 和 $b$ 是正实数，则 $a+b \geq 2\sqrt{ab}$。
-\end{cor}
+改进版AutoPT+在300次实验中的成本统计见\cref{tab:ch4:4}：
 
-\begin{proof}
-  我们可以使用平均数不小于几何平均数这个不等式来证明。具体地，我们有：
-  \begin{align*}
-    \sqrt{ab}              & \leq \frac{a+b}{2} \\
-    \Rightarrow 2\sqrt{ab} & \leq a+b
-  \end{align*}
-  因此，$a+b \geq 2\sqrt{ab}$，定理成立。
-\end{proof}
+\begin{table}[htbp]
+\centering
+\caption{GPT-4o-mini成本数据} \label{tab:ch4:4}
+  \renewcommand{\arraystretch}{1.3}
+\begin{tabular}{ll}
+    \toprule
+指标 & 数值 \\
+    \midrule
+总成本 & \$6.3955 \\
+    \midrule
+平均成本/次 & \$0.0213 \\
+    \midrule
+平均Tokens/次 & 11.3K \\
+    \midrule
+总Tokens & 3.4M \\
+    \midrule
+平均耗时/次 & 94.2s \\
+    \bottomrule
+\end{tabular}
+\end{table}
 
-\begin{lem}
-  设 $f$ 是一个在 $[a,b]$ 上的可微函数，则 $f$ 在 $[a,b]$ 上一定有一点使得 $f'(x) = \frac{f(b)-f(a)}{b-a}$。
-\end{lem}
+按照模型来划分，GPT-4o-mini单次成本是0.003109美元，GPT-3.5-turbo单次成本为0.008821美元，GPT-4o单次成本则是0.052024美元。
 
-\begin{proof}
-  定义辅助函数 $g(x) = f(x) - \frac{f(b)-f(a)}{b-a}(x-a)$。易验证 $g(a) = f(a)$，$g(b) = f(b) - (f(b)-f(a)) = f(a)$，故 $g(a) = g(b)$。由罗尔定理，存在 $c \in (a,b)$ 使得 $g'(c) = 0$，即
-  \begin{equation*}
-    f'(c) - \frac{f(b)-f(a)}{b-a} = 0,
-  \end{equation*}
-  因此 $f'(c) = \frac{f(b)-f(a)}{b-a}$，定理得证。
-\end{proof}
+\subsection{与原版及人工成本对比}
 
-\begin{prop}
-  设 $f$ 和 $g$ 是两个单调递增的函数，则 $f+g$ 也是一个单调递增函数。
-\end{prop}
+下表以GPT-4o-mini为例，对比原版AutoPT、改进版AutoPT+和人工渗透测试的成本：
 
-\begin{proof}
-  我们需要证明对于任意的 $x,y \in \mathbb{R}$，如果 $x < y$，则 $f(x)+g(x) < f(y)+g(y)$。由于 $f$ 和 $g$ 都是单调递增的，所以有 $f(x) < f(y)$ 和 $g(x) < g(y)$，于是 $f(x)+g(x) < f(y)+g(x) < f(y)+g(y)$。因此，$f+g$ 是单调递增的，定理得证。
-\end{proof}
+\begin{table}[htbp]
+\centering
+\caption{原版与改进版成本对比} \label{tab:ch4:5}
+  \renewcommand{\arraystretch}{1.3}
+\begin{tabular}{llll}
+    \toprule
+指标 & 原版AutoPT & 改进版AutoPT+ & 人工测试 \\
+    \midrule
+总成本（20漏洞×5次） & \$0.99 & \$0.31 & \textasciitilde\$310 \\
+    \midrule
+平均耗时/次 & 161.3s & 94.2s & ~15min \\
+    \midrule
+总体成功率 & ~36\% & 74\% & — \\
+    \bottomrule
+\end{tabular}
+\end{table}
 
-\begin{conj}
-  （孪生素数猜想）存在无穷多对素数 $(p, p+2)$，使得 $p$ 和 $p+2$ 均为素数。例如 $(3,5)$、$(5,7)$、$(11,13)$、$(17,19)$ 等。该猜想至今尚未被证明。
-\end{conj}
+原版的数据取自原论文\cite{Wu2024AutoPT} Table 5，GPT-4o-mini跑20个漏洞各5次的总花费是0.99美元，总耗时16131秒。改进版同样用GPT-4o-mini，单次0.003109美元 × 100次 = 0.31美元。人工成本的估算方式见下文。
 
-\begin{assume}
-  假设 $A$ 和 $B$ 是两个集合，则它们的笛卡尔积 $A \times B$ 的基数为 $|A| \cdot |B|$。
-\end{assume}
+改进版在耗时、费用这两方面都比原版要低。单次平均耗时原本是161.3秒，现在缩短到了94.2秒，下降幅度有42\%。耗时下降的原因一方面是scan\_failed标志在Scan阶段没检测到漏洞时会直接终止流程，省去了后续Agent的无效执行，另一方面，上下文压缩机制让每轮循环的Token用量减少，单轮处理速度加快，所以Agent在相同步数下能推进更多任务进度。GPT-4o-mini的100次实验总成本从0.99美元降到了0.31美元，下降幅度为69\%，并且成功率从36\%提高到74\%。
 
-\begin{proof}
-  我们需要证明 $|A \times B| = |A| \cdot |B|$。我们可以使用等势关系来证明，即构造一个双射 $f: A \times B \rightarrow \left\{1,2,\dots,|A| \cdot |B|\right\}$。具体地，我们可以按照以下方式定义 $f$：
-  \begin{equation}
-    f(a,b)=(a-1)\cdot |B|+b
-  \end{equation}
-  其中 $a \in A$，$b \in B$。显然，$f$ 是一个双射，因为每个元素 $(a,b)$ 都对应着唯一的自然数 $(a-1) \cdot |B| + b$，而每个自然数也都可以唯一地表示为 $(a-1) \cdot |B| + b$ 的形式。因此，$A \times B$ 和 $\left\{1,2,\dots,|A| \cdot |B|\right\}$ 等势，即它们有相同的基数，定理得证。
-\end{proof}
+作为参照，可以粗略估算一下人工渗透测试的开销。在搭建本实验的漏洞环境时，作者对全部20个CVE进行了手工复现，累计耗时约5个工时。根据iSecJobs发布的2024年渗透测试工程师薪资数据（年薪中位数约12.4万美元），按每年50周、每周40小时折算，时薪约为62美元，20个漏洞的人工总成本约310美元。这个数字只是量级上的参照，不是对真实攻击成本的精确描述。但即便如此，自动化方案每次测试不到1美分的开销与人工数百美元的成本之间，仍然差着约三个数量级。
 
-\begin{dfn}
-  一个有向无环图是拓扑排序的，当且仅当它的所有顶点都可以按照某个顺序进行编号，使得对于任意一条有向边 $(u,v)$，$u$ 的编号都小于 $v$ 的编号。
-\end{dfn}
+以上这些分析解答了RQ3：以GPT-4o-mini作为例子来看，AutoPT+的单次测试成本仅仅是0.003109美元，平均每次耗时94.2秒。和原版相比，费用降低了69\%，耗时缩短了42\%，成功率从36\%提高到74\%，在资源消耗降低的同时测试效果也有了提高。
 
-\begin{exmp}
-  考虑一个任务调度问题，其中有 $n$ 个任务需要按照一定的顺序执行。如果任务之间存在依赖关系，即某些任务必须在其他任务执行完毕之后才能开始执行，那么我们可以将这些任务和它们之间的依赖关系表示成一个有向无环图，并通过拓扑排序来确定任务的执行顺序。
-\end{exmp}
+\section{失败原因分析与工具改进效果}
 
-\begin{rem}
-  在数学中，定义和定理是数学推理的基础，而引理和命题则通常作为定理证明的中间步骤。而且在数学研究中，猜想和猜测往往需要大量的证明和反证，才能得到确定的结论。
-\end{rem}
+300次实验中有109次失败。我们逐条检查了这些失败案例的日志，按原因归类后得到下表（同一次失败可能同时属于多个类别，所以各项比例加起来会超过100\%）：
 
-\begin{thm}
-  对于任意正整数 $n$，有 $\displaystyle\sum_{i=1}^n i = \frac{n(n+1)}{2}$。
-\end{thm}
+\begin{table}[htbp]
+\centering
+\caption{失败原因分类统计} \label{tab:ch4:6}
+  \renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lllll}
+    \toprule
+失败原因 & 总体占比 & GPT-3.5 (46次) & GPT-4o (37次) & GPT-4o-mini (26次) \\
+    \midrule
+提前放弃 & 33.0\% & 32.61\% (15) & 40.54\% (15) & 23.08\% (6) \\
+    \midrule
+错误的命令 & 29.4\% & 28.26\% (13) & 32.43\% (12) & 26.92\% (7) \\
+    \midrule
+上下文限制 & 22.9\% & 19.57\% (9) & 24.32\% (9) & 26.92\% (7) \\
+    \midrule
+安全审查拦截 & 22.0\% & 19.57\% (9) & 18.92\% (7) & 30.77\% (8) \\
+    \midrule
+工具执行失败 & 10.1\% & 13.04\% (6) & 8.11\% (3) & 7.69\% (2) \\
+    \bottomrule
+\end{tabular}
+\end{table}
 
-\begin{proof}
-  设 $n$ 是任意正整数，则存在一个双射 $f: \left\{1,2,\dots,n\right\} \rightarrow \left\{n,n-1,\dots,1\right\}$，即将 $\left\{1,2,\dots,n\right\}$ 中的元素按照相反的顺序重新编号，使得 $f(i) = n-i+1$。因此，我们有：
-  \begin{align*}
-    \sum_{i=1}^n i & = 1 + 2 + \cdots + (n-1) + n           \\
-                   & = f(1) + f(2) + \cdots + f(n-1) + f(n) \\
-                   & = (n+1) \cdot \frac{n}{2}              \\
-                   & = \frac{n(n+1)}{2}
-  \end{align*}
-  因此，定理成立。
-\end{proof}
+五类失败原因中，工具执行失败的占比最低，仅10.1\%，三个模型的表现也很接近（GPT-3.5为13.04\%、GPT-4o为8.11\%、GPT-4o-mini为7.69\%）。这一比例与第三章中工具层面的改进直接相关。
+
+原版中不少被归类为"工具执行失败"的案例，问题并不出在工具本身，而是Agent选错了工具或者传入了错误的参数格式。改进版从三个层面压低了这一比例。第一，提示词中的RULES和WHEN TO USE规则为Agent提供了明确的工具选择判据（如"含特殊字符的URL用浏览器，简单HTTP请求用curl"），减少了在不合适的场景下硬用错误工具导致报错的情况。第二，RobustReActParser的多级容错机制将原版中因LLM输出格式偏差导致的解析失败（直接抛异常终止循环）转化为可恢复的中间状态，Agent能在下一轮迭代中根据格式指导自行修正，一次格式错误不再意味着整轮工具调用作废。第三，新增的三个浏览器扩展工具（fill\_element、select\_option、wait\_for\_selector）补齐了原版缺失的表单交互能力，Agent遇到安装向导、下拉框配置等场景时有了正确的工具可用，不必再靠构造JavaScript间接实现。这三处改动叠加在一起，把"工具执行失败"从一个常见的失败原因压到了10\%以下。
+
+其余四类原因则指向了当前系统尚未解决的问题。
+
+占比最高的是提前放弃（33.0\%），即Agent在连续碰壁后认为当前漏洞无法利用而主动终止。Check阶段的\_build\_failure\_guidance机制会根据上次失败的输出给出针对性的重试建议，对盲目放弃有一定改善，但在多步骤身份验证或需要特定前置条件的场景下，Agent碰壁两三次就容易收手。GPT-4o在这一项上占比40.54\%，高于另外两个模型，可能和它偏保守的决策风格有关。
+
+其次是错误的命令（29.4\%），Agent生成了语法不对或参数拼错的命令。提示词里的RULES模块和命令模板挡住了大量低级错误，剩下的主要集中在复杂Bash管道符拼接和非标准payload构造上，这类问题靠提示词约束很难完全消除。
+
+上下文限制（22.9\%）是Token窗口耗尽导致Agent被迫中断。工具输出摘要和三层结构化上下文组装把这个比例压了下来，但碰上需要反复交互的复杂漏洞，累积的上下文还是可能撑破窗口。
+
+安全审查拦截（22.0\%）是模型自身的安全策略拒绝生成攻击性命令。GPT-4o-mini在这一项上占30.77\%，比另外两个模型都高，说明它的安全过滤更严。这也解释了一个看似矛盾的现象：GPT-4o-mini总体成功率最高，但在个别需要激进payload的漏洞上反而不如GPT-4o和GPT-3.5。
+
+\section{本章小结}
+
+本章基于20个真实CVE漏洞环境和3种大语言模型，通过300次独立实验对AutoPT+的改进效果进行了验证，得到以下结论：
+
+改进效果方面（RQ1），AutoPT+的总体成功率达到63.67\%，比原版（约25\%）高出近39个百分点。简单漏洞从约32\%升至76.67\%，复杂漏洞从约17\%升至50.67\%。原版60组测试中有38组通过率为0\%，改进版只剩3组。
+
+关于模型差异（RQ2），GPT-4o-mini以74\%的成功率位居三模型之首。但架构层面的优化对弱模型帮助最大：GPT-3.5-turbo从约7\%跃升至54\%，说明流程约束和提示词设计在一定程度上能够弥补模型能力的不足。
+
+关于成本效益（RQ3），以GPT-4o-mini为例，改进版单次测试成本仅\$0.003109、平均耗时94.2秒，相比原版费用降低69\%、耗时缩短42\%。成功率大幅上升的同时资源消耗反而下降，说明流程优化本身就能带来成本收益。
+

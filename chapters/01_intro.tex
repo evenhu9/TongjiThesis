@@ -1,0 +1,33 @@
+
+\chapter{绪论}
+
+\section{研究背景与意义}
+
+网络空间已经成为关键基础设施运维、企业业务开展和社会信息交互的核心载体。攻击面也随着网络空间发展而同步扩大，新型漏洞出现速度加快，0day漏洞被武器化利用的门槛持续降低，数据泄露、勒索软件和针对性入侵事件频发\cite{Liu2024AutoScan}。渗透测试作为主动探测系统漏洞、防范潜在攻击的核心手段，重要性不言而喻。截止 2025 年，全球渗透测试市场规模预计从2020年的17亿美元增长至45亿美元\cite{Liu2024AutoScan}，我国也通过国家护网等实践推动渗透测试在关键基础设施领域的应用。
+
+当前网络安全防护与渗透测试工作仍面临显著瓶颈，一方面，传统渗透测试严重依赖人工操作，安全人员需要频繁切换Nmap、Metasploit等工具完成漏洞扫描、攻击验证等多项工作，同时在多个平台之间检索漏洞情报资源，工作流程割裂、效率低下\cite{Wu2023PenTest}。加上渗透测试本身对从业者的专业技术要求很高，测试成本居高不下，难以满足大规模网络环境下的检测需求。
+
+自动化渗透测试技术因此成为研究热点。早期方案多基于规则设计\cite{Liu2024AutoScan}，适配场景单一。随着大语言模型（LLM）能力的提升，研究者开始探索以LLM驱动智能体（Agent）来实现渗透测试的自动化\cite{Isozaki2025Towards}，先后出现了PentestGPT\cite{Deng2024PentestGPT}、AutoAttacker\cite{Xu2024AutoAttacker}、PentestAgent\cite{Shen2025PentestAgent}、MAPTA\cite{David2025MAPTA}等工作（详见1.2节）。其中，Wu等人提出的AutoPT\cite{Wu2024AutoPT}引入渗透测试状态机（PSM），以有限状态机对测试流程进行建模，通过定义状态和转移规则约束LLM的决策空间，缓解了Agent在长序列任务中易陷入无效循环的问题。
+
+\section{国内外研究现状}
+
+早在LLM出现之前，就有人尝试把渗透测试自动化。Boddy等人\cite{Boddy2005Course}用经典规划方法生成攻击行为序列，把渗透测试当作状态空间搜索来做。后来也有基于强化学习的方案\cite{Kong2025PentestR1}，让Agent在仿真环境中学习攻击策略，但真实网络的状态组合太多，训练成本很高，难以实际落地。
+
+大语言模型出现后，安全领域的研究者开始将其应用于自动化渗透测试。Xu等人提出的AutoAttacker\cite{Xu2024AutoAttacker}利用LLM的知识储备实现自动化后渗透利用，但忽略了前期侦察和漏洞分析阶段。Deng等人提出的PentestGPT\cite{Deng2024PentestGPT}通过渗透测试任务树（PTT）包含多阶段流程，在基准测试中较GPT-3.5提升了228.6\%的任务完成率，但仍需人工决策任务分支，且缺乏自动验证和调试机制。Fang等人\cite{Fang2024LLM}\cite{Fang2024LLMagents}的研究表明LLM Agent能够自主利用已知漏洞甚至入侵网站，Zhu等人\cite{Zhu2024Teams}进一步证明LLM Agent团队可以协作利用零日漏洞。
+
+在多Agent协作方向上，Shen等人提出的PentestAgent\cite{Shen2025PentestAgent}通过独立运行侦察、搜索、规划、执行四个Agent，并借助RAG技术实时检索外部漏洞库（如Snyk、ExploitDB），弥补了LLM预训练知识有限和过时的问题。David和Gervais提出的MAPTA\cite{David2025MAPTA}构建了协调、沙箱、验证三Agent架构，协调Agent统筹全局分配任务，沙箱Agent在Docker隔离容器中执行扫描和探测操作，验证Agent对疑似漏洞进行端到端实证验证以消除误报。Nakatani提出的RapidPen\cite{Nakatani2025RapidPen}以IP地址为输入实现全自动的渗透测试流程。
+
+Wu等人的AutoPT\cite{Wu2024AutoPT}走了另一条路，用渗透测试状态机（PSM）对测试流程做形式化建模，通过定义状态和转移规则来约束LLM的决策空间，本文的工作即以此为基础。除上述系统性工作外，也有一些研究从其他角度切入：Happe和Cito\cite{Happe2023Understanding}通过对安全从业者的实证调查，记录了人类渗透测试专家的工作习惯和决策方式，这对Agent的行为设计有参考价值；Isozaki等人\cite{Isozaki2025Towards}搭建了LLM自动化渗透测试的基准评测；Kong等人\cite{Kong2025PentestR1}的Pentest-R1用两阶段强化学习来优化Agent的推理能力；Yadav等人\cite{Yadav2020IoTPEN}的IoT-PEN则面向IoT设备，实现了端到端的渗透测试流程。
+
+总的来看，现有LLM驱动的渗透测试工作在流程可控性、工具交互能力和可用性方面仍有不足，本文的改进工作即围绕这几个方面展开。
+
+\section{本文主要贡献}
+
+本文的主要贡献如下：
+
+（1）PSM流程控制机制的多维度优化。设计了统一的ReAct结构化提示词模板与角色差异化机制，规范各Agent的输出格式和行为边界；将Scan阶段细化为端口发现、服务知识匹配、漏洞扫描和结果评估四个子阶段，引入nmap全端口扫描和services.yml服务知识库实现动态端口发现，并在扫描结果为空时提前终止流程；实现了基于关键token过滤和三层结构化组装的上下文压缩机制；设计了容错提取逻辑以提升PoC获取的可靠性；改进了Check阶段的验证机制，将匹配域缩小至工具真实输出并引入LLM判断与正则兜底的双层校验。
+
+（2）Agent工具能力与解析容错的增强。新增fill\_element、select\_option、wait\_for\_selector三个自定义浏览器扩展工具，补足Playwright原生工具包缺少的表单交互能力；实现了RobustReActParser多级容错解析器，通过降级策略适配思维链模型的非标准输出；增强了ReadHTML工具对vulhub GitHub仓库的PoC自动提取能力。
+
+（3）Web Console图形化管理界面。基于Flask后端和原生JavaScript前端，提供控制台、漏洞库、渗透测试面板、靶机管理、测试报告和系统设置六个功能模块，使渗透测试任务的配置、执行监控和结果分析不再依赖命令行。
+
