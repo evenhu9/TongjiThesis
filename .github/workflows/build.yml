@@ -1,0 +1,138 @@
+name: Build Thesis PDF
+
+on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - '*.md'
+      - 'LICENSE'
+      - '.gitignore'
+      - 'docs/**'
+      - '.github/ISSUE_TEMPLATE/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TL_PACKAGES: |
+    adjustbox
+    algorithmicx
+    algorithms
+    alphalph
+    biber
+    biblatex
+    biblatex-gb7714-2015
+    booktabs
+    caption
+    carlisle
+    cases
+    catchfile
+    chinese-jfm
+    chngcntr
+    circledsteps
+    cleveref
+    collectbox
+    ctex
+    dvips
+    emptypage
+    enumitem
+    environ
+    extarrows
+    eso-pic
+    fancyhdr
+    fancyvrb
+    float
+    fontaxes
+    framed
+    fvextra
+    gbt7714
+    helvetic
+    hologo
+    ifplatform
+    lastpage
+    latexmk
+    lineno
+    listings
+    minted
+    multirow
+    mwe
+    natbib
+    needspace
+    newtx
+    nth
+    oberdiek
+    pdftexcmds
+    pgf
+    pict2e
+    picture
+    realscripts
+    rsfs
+    setspace
+    siunitx
+    tcolorbox
+    texcount
+    texliveonfly
+    threeparttable
+    threeparttablex
+    times
+    titling
+    tocloft
+    trimspaces
+    txfonts
+    ucs
+    upquote
+    was
+    xcolor
+    xecjk
+    xpatch
+    xstring
+    zhnumber
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Python for minted
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Pygments for minted
+        run: pip install Pygments
+
+      - name: Install TeX Live
+        uses: tex-live/setup-texlive-action@v4
+        with:
+          version: 2026
+          packages: ${{ env.TL_PACKAGES }}
+        env:
+          SETUP_TEXLIVE_ACTION_NO_CACHE_ON_FAILURE: 1
+
+      - name: Compile thesis (XeLaTeX)
+        run: make ENGINE=-xelatex all
+
+      - name: Show log on failure
+        if: failure()
+        run: cat main.log
+
+      - name: Rename PDF
+        if: success()
+        run: mv main.pdf tongji-thesis.pdf
+
+      - name: Upload PDF
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: thesis-pdf
+          path: tongji-thesis.pdf
+          retention-days: 90
