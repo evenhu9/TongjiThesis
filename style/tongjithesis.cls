@@ -1042,7 +1042,7 @@
         \begin{enumerate}[label=\arabic*.,leftmargin=2em,labelsep=0.5em,itemsep=0.2em,parsep=0pt,topsep=0pt] \tongjiinfomaterials \end{enumerate}
       \fi
     }%
-    （请列出所有提交的支撑材料名称，如：毕业设计--全套图纸、毕业作品、计算书、程序代码、附录等）
+    
     }
   \end{titlepage}
   \setstretch{\tjlinespread}
