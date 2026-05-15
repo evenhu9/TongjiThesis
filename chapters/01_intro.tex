@@ -9,23 +9,62 @@
 
 自动化渗透测试技术因此成为研究热点。早期方案多基于规则设计\cite{Liu2024AutoScan}，适配场景单一。随着大语言模型（LLM）能力的提升，研究者开始探索以LLM驱动智能体（Agent）来实现渗透测试的自动化\cite{Isozaki2025Towards}，先后出现了PentestGPT\cite{Deng2024PentestGPT}、AutoAttacker\cite{Xu2024AutoAttacker}、PentestAgent\cite{Shen2025PentestAgent}、MAPTA\cite{David2025MAPTA}等工作（详见1.2节）。其中，Wu等人提出的AutoPT\cite{Wu2024AutoPT}引入渗透测试状态机（PSM），以有限状态机对测试流程进行建模，通过定义状态和转移规则约束LLM的决策空间，缓解了Agent在长序列任务中易陷入无效循环的问题。
 
+从理论角度看，LLM驱动渗透测试的核心挑战在于：LLM的推理过程本质上是基于概率的自回归生成，缺乏对渗透测试过程的因果理解，容易在长序列任务中出现目标偏移和幻觉。PSM通过状态空间的分隔来约束LLM行为，其理论意义在于将无界的自然语言推理嵌入到有界的状态转移框架中，从而在LLM的灵活性和任务的可控性之间寻求平衡。然而，现有工作对PSM的状态粒度设计、工具调用边界与Agent角色分化之间的理论关系缺乏系统分析，本文正是从这一理论缺口出发，探究\"状态机约束如何约束LLM Agent在渗透测试中的行为模式并提高任务成功率\"的问题。
+
 \section{国内外研究现状}
 
 早在LLM出现之前，就有人尝试把渗透测试自动化。Boddy等人\cite{Boddy2005Course}用经典规划方法生成攻击行为序列，把渗透测试当作状态空间搜索来做。后来也有基于强化学习的方案\cite{Kong2025PentestR1}，让Agent在仿真环境中学习攻击策略，但真实网络的状态组合太多，训练成本很高，难以实际落地。
 
 大语言模型出现后，安全领域的研究者开始将其应用于自动化渗透测试。Xu等人提出的AutoAttacker\cite{Xu2024AutoAttacker}利用LLM的知识储备实现自动化后渗透利用，但忽略了前期侦察和漏洞分析阶段。Deng等人提出的PentestGPT\cite{Deng2024PentestGPT}通过渗透测试任务树（PTT）包含多阶段流程，在基准测试中较GPT-3.5提升了228.6\%的任务完成率，但仍需人工决策任务分支，且缺乏自动验证和调试机制。Fang等人\cite{Fang2024LLM}\cite{Fang2024LLMagents}的研究表明LLM Agent能够自主利用已知漏洞甚至入侵网站，Zhu等人\cite{Zhu2024Teams}进一步证明LLM Agent团队可以协作利用零日漏洞。
 
-在多Agent协作方向上，Shen等人提出的PentestAgent\cite{Shen2025PentestAgent}通过独立运行侦察、搜索、规划、执行四个Agent，并借助RAG技术实时检索外部漏洞库（如Snyk、ExploitDB），弥补了LLM预训练知识有限和过时的问题。David和Gervais提出的MAPTA\cite{David2025MAPTA}构建了协调、沙箱、验证三Agent架构，协调Agent统筹全局分配任务，沙箱Agent在Docker隔离容器中执行扫描和探测操作，验证Agent对疑似漏洞进行端到端实证验证以消除误报。Nakatani提出的RapidPen\cite{Nakatani2025RapidPen}以IP地址为输入实现全自动的渗透测试流程。
+在多Agent协作方向上，Shen等人提出的PentestAgent\cite{Shen2025PentestAgent}通过独立运行侦察、搜索、规划、执行四个Agent，并借助RAG技术实时检索外部漏洞库（如Snyk、ExploitDB），弥补了LLM预训练知识有限和过时的问题。David和Gervais提出的MAPTA\cite{David2025MAPTA}构建了协调、沙箱、验证三Agent架构，协调Agent统筹全局分配任务，沙箱Agent在Docker隔离容器中执行扫描和探测操作，验证Agent对疑似漏洞进行端到端实证验证以消除误报。然而，MAPTA在状态机设计层面存在明显不足：其任务流程本质上是一个线性流水线，缺乏对失败路径的回退处理和动态重规划能力，一旦沙箱Agent输出为空或验证Agent判定失败，系统只能终止而无法像PSM那样回退至上一状态重新尝试。在工具调用机制上，MAPTA的沙箱Agent仅能调用预定义的Shell命令列表，不支持浏览器交互，无法处理需要Web表单操作的漏洞场景。在交互逻辑方面，MAPTA的Agent之间通过文件系统传递中间结果，缺乏实时的上下文共享和状态同步机制。
 
-Wu等人的AutoPT\cite{Wu2024AutoPT}走了另一条路，用渗透测试状态机（PSM）对测试流程做形式化建模，通过定义状态和转移规则来约束LLM的决策空间，本文的工作即以此为基础。除上述系统性工作外，也有一些研究从其他角度切入：Happe和Cito\cite{Happe2023Understanding}通过对安全从业者的实证调查，记录了人类渗透测试专家的工作习惯和决策方式，这对Agent的行为设计有参考价值；Isozaki等人\cite{Isozaki2025Towards}搭建了LLM自动化渗透测试的基准评测；Kong等人\cite{Kong2025PentestR1}的Pentest-R1用两阶段强化学习来优化Agent的推理能力；Yadav等人\cite{Yadav2020IoTPEN}的IoT-PEN则面向IoT设备，实现了端到端的渗透测试流程。
+Nakatani提出的RapidPen\cite{Nakatani2025RapidPen}以IP地址为输入实现全自动的渗透测试流程，但其设计目标偏向速度而非可控性，缺少对Agent决策过程的形式化约束，在面对复杂漏洞时容易出现不可预测的行为。
 
-总的来看，现有LLM驱动的渗透测试工作在流程可控性、工具交互能力和可用性方面仍有不足，本文的改进工作即围绕这几个方面展开。
+Xu等人提出的AutoAttacker\cite{Xu2024AutoAttacker}利用LLM的知识储备实现自动化后渗透利用，但在状态机设计上完全缺失前期侦察和漏洞分析阶段，其攻击路径依赖于LLM对目标系统的\"猜测\"而非实际扫描结果，导致在非标准端口或定制化服务场景下成功率极低。在工具调用方面，AutoAttacker仅支持命令执行工具，缺乏对浏览器交互和外部知识检索的支持。
+
+Wu等人的AutoPT\cite{Wu2024AutoPT}通过渗透测试状态机（PSM）对测试流程做形式化建模，定义五元组(S, A, T, s₀, F)来描述渗透测试各阶段及转移规则，本文的工作即以此为基础。相比上述系统，AutoPT/PSM的核心优势在于将渗透测试从\"Agent自主探索\"转变为\"状态机引导下的约束探索\"，在灵活性和可控性之间取得了更好的平衡。但如2.3.3节将详述，原版PSM仍存在状态粒度过粗、工具接口不完整和缺乏图形化管理界面等问题。
+
+为便于对比，表\ref{tab:literature_comparison}从状态机设计、工具调用机制、交互逻辑三个维度对上述代表性系统进行了总结：
+
+\begin{table}[htbp]
+\centering
+\caption{代表性LLM驱动渗透测试系统对比} \label{tab:literature_comparison}
+  \renewcommand{\arraystretch}{1.3}
+\begin{tabular}{>{\raggedright\arraybackslash}p{2cm}>{\raggedright\arraybackslash}p{3cm}>{\raggedright\arraybackslash}p{3cm}>{\raggedright\arraybackslash}p{4cm}}
+    \toprule
+系统 & 状态机/流程设计 & 工具调用机制 & 交互逻辑与可用性 \\
+    \midrule
+PentestGPT & 基于PTT任务树的多阶段流程，需人工选择分支 & 使用外部工具但无自动化调用抽象 & 对话式交互，缺乏可视化界面 \\
+    \midrule
+AutoAttacker & 无显式状态机，依赖LLM自由探索后渗透阶段 & 仅命令执行（EXECMD），无浏览器交互 & 命令行交互，人工触发 \\
+    \midrule
+MAPTA & 线性三Agent流水线，无失败回退机制 & 预定义Shell命令列表，不支持浏览器操作 & Agent间通过文件系统通信，无状态同步 \\
+    \midrule
+AutoPT（原版）& 五状态PSM，支持Exploit→Check回退，但Scan阶段粒度过粗 & EXECMD+ReadHTML+Playwright（缺表单交互） & 纯命令行，不可视化 \\
+    \midrule
+\textbf{本文AutoPT+} & \textbf{细化Scan为四子阶段，引入提前终止与Check双层校验} & \textbf{新增3个浏览器工具+多级容错解析器+PoC增强提取} & \textbf{Web Console六大模块，可视化监控} \\
+    \bottomrule
+\end{tabular}
+\end{table}
+
+除上述系统性工作外，也有一些研究从其他角度切入。Happe和Cito\cite{Happe2023Understanding}通过对安全从业者的实证调查，记录了人类渗透测试专家的工作习惯和决策方式。例如，专家在渗透测试中遵循\"侦察→假设→验证→调整\"的循环模式，而非线性执行步骤，且在遇到障碍时倾向于切换攻击向量而非重复同一路径。本文在设计Agent角色定义和提示词模板时参考了这些发现：Scan Agent的\"端口发现→服务匹配→漏洞扫描→结果评估\"四阶段流程对应专家的侦察与假设阶段；Exploit Agent的METHODOLOGY中\"分析→准备→执行→验证→自适应切换\"五步方法论对应专家的验证与调整循环；而Exploit Agent允许最多8次尝试并建议切换攻击方式（curl↔浏览器、Payload变体）的设计，则直接借鉴了专家在障碍面前切换攻击向量的行为模式。
+
+Isozaki等人\cite{Isozaki2025Towards}搭建了LLM自动化渗透测试的基准评测；Kong等人\cite{Kong2025PentestR1}的Pentest-R1用两阶段强化学习来优化Agent的推理能力；Yadav等人\cite{Yadav2020IoTPEN}的IoT-PEN则面向IoT设备，实现了端到端的渗透测试流程。
+
+综合以上分析，现有LLM驱动的渗透测试工作在不同程度上存在状态机设计不完善（缺乏细粒度子状态与提前终止逻辑）、工具接口不完备（缺乏浏览器表单交互与多级解析容错）以及交互方式不直观（缺乏图形化管理界面）三方面共性问题，本文的改进工作即围绕这三个方面展开。
 
 \section{本文主要工作}
 
 在流程可控性方面，我完成了PSM流程控制机制的多维度优化。设计了统一的ReAct结构化提示词模板与角色差异化机制，规范各Agent的输出格式和行为边界；将Scan阶段细化为端口发现、服务知识匹配、漏洞扫描和结果评估四个子阶段，引入nmap全端口扫描和services.yml服务知识库实现动态端口发现，并在扫描结果为空时提前终止流程；实现了基于关键token过滤和三层结构化组装的上下文压缩机制；设计了容错提取逻辑以提升PoC获取的可靠性；改进了Check阶段的验证机制，将匹配域缩小至工具真实输出并引入LLM判断与正则兜底的双层校验。
 
+这些优化的理论依据在于：LLM Agent在渗透测试中的失败模式可归纳为三类，状态空间过大导致的决策发散、工具接口不完备导致的操作受限、以及输出格式偏差导致的解析中断。本文的PSM优化方案并非简单叠加工程技巧，而是从\"约束-能力-容错\"三个理论维度系统性地缩小了Agent的行为空间与实际任务需求之间的差距。其中，状态粒度细化对应\"约束\"维度的精准化，角色差异化对应\"行为边界\"的形式化定义，上下文压缩对应\"信息密度\"的最优化控制。
+
 在工具交互能力方面，我对Agent工具能力与解析容错做了增强。新增fill\_element、select\_option、wait\_for\_selector三个自定义浏览器扩展工具，补足Playwright原生工具包缺少的表单交互能力；实现了RobustReActParser多级容错解析器，通过降级策略适配思维链模型的非标准输出；增强了ReadHTML工具对vulhub GitHub仓库的PoC自动提取能力。
 
-为了提高自动化渗透测试框架的可用性，我开发了Web Console图形化管理界面。基于Flask后端和原生JavaScript前端，提供控制台、漏洞库、渗透测试面板、靶机管理、测试报告和系统设置六个功能模块，使渗透测试任务的配置、执行监控和结果分析不再依赖命令行。
+工具扩展的理论贡献在于将渗透测试中\"人机交互操作\"抽象为可组合的工具原语，并建立了从非结构化LLM输出到结构化工具调用的容错映射管道。与传统规则解析器在格式偏差时直接失败不同，本文的多级降级策略将解析过程建模为逐步放宽约束的松弛优化问题，在保证最终可执行性的前提下最大化对非标准输出的容忍度。
+
+为了提高自动化渗透测试框架的可用性，我开发了Web Console图形化管理界面。基于Flask后端和原生JavaScript前端，提供控制台、漏洞库、渗透测试面板、靶机管理、测试报告和系统设置六个功能模块，使渗透测试任务的配置、执行监控和结果分析不再依赖命令行。Web Console将PSM的状态转移过程映射为可视化的阶段进度展示，其设计理念在于将状态机内部运行状态外化为可供人工监督和干预的界面元素，从而在人机协作层面增强自动化渗透测试的可控性与可解释性。
+
+在上述三项工程改进的基础上，本文还设定了一个理论分析目标：通过对实验数据的系统归因，建立\"PSM状态约束强度—Agent任务成功率—资源消耗\"三者之间的定性关系模型，为后续LLM驱动渗透测试系统的优化提供可参照的设计原则。
 
