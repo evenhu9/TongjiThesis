@@ -4,11 +4,8 @@ on:
       - master
       - proposal
       - dev
-      - 'feat/**'
-      - 'fix/**'
-      - 'refactor/**'
     tags:
-      - 'v*'
+      - 'v[0-9]+.[0-9]+.[0-9]+'
     paths-ignore:
       - '*.md'
       - 'LICENSE'
@@ -45,6 +42,7 @@ env:
   # Packages needed for the thesis compilation
   TL_PACKAGES: |
     adjustbox
+    algorithm2e
     algorithmicx
     algorithms
     alphalph
@@ -78,8 +76,10 @@ env:
     gbt7714
     gsftopk
     helvetic
+    haranoaji
     hologo
     ifplatform
+    ifoddpage
     lastpage
     latexmk
     lineno
@@ -97,6 +97,7 @@ env:
     pict2e
     picture
     realscripts
+    relsize
     rsfs
     setspace
     siunitx
@@ -116,11 +117,12 @@ env:
     xcolor
     xecjk
     xpatch
+    xspace
     xstring
     zhnumber
 
 jobs:
-  # Cross-platform build: default options (minted=true, biblatex=true)
+  # Cross-platform build: default options (minted=false, biblatex=true)
   build:
     strategy:
       fail-fast: false
@@ -132,14 +134,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-
-      - name: Install Python for minted
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-
-      - name: Install Pygments for minted
-        run: pip install Pygments
 
       - name: Install TeX Live
         id: setup-tl
@@ -184,22 +178,24 @@ jobs:
           path: tongjithesis-*.pdf
           retention-days: 30
 
-  # Option variants: test minted=false and bibtex (Linux-only, xelatex-only)
+  # Option variants: test minted=true, bibtex, and other configurations (Linux-only, xelatex-only)
   build-variants:
     strategy:
       fail-fast: false
       matrix:
         include:
-          - variant: minted-false
-            pygments: false
+          - variant: minted-true
+            pygments: true
           - variant: bibtex
-            pygments: true
-          - variant: minimal
             pygments: false
+          - variant: humanities-minted
+            pygments: true
           - variant: twoside
-            pygments: true
+            pygments: false
           - variant: humanities
-            pygments: true
+            pygments: false
+          - variant: algo-algorithm2e
+            pygments: false
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -210,7 +206,7 @@ jobs:
         if: matrix.pygments
         uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          python-version: "3.13"
 
       - name: Install Pygments for minted
         if: matrix.pygments
@@ -225,21 +221,21 @@ jobs:
         env:
           SETUP_TEXLIVE_ACTION_NO_CACHE_ON_FAILURE: 1
 
-      - name: Configure minted=false variant
-        if: matrix.variant == 'minted-false'
+      - name: Configure minted=true variant
+        if: matrix.variant == 'minted-true'
         run: |
-          sed -i 's/minted=true/minted=false/' main.tex
+          sed -i 's/minted=false/minted=true/' main.tex
 
       - name: Configure bibtex variant
         if: matrix.variant == 'bibtex'
         run: |
           sed -i 's/biblatex=true/biblatex=false/' main.tex
 
-      - name: Configure minimal variant (no minted, no biblatex)
-        if: matrix.variant == 'minimal'
+      - name: Configure humanities-minted variant
+        if: matrix.variant == 'humanities-minted'
         run: |
-          sed -i 's/minted=true/minted=false/' main.tex
-          sed -i 's/biblatex=true/biblatex=false/' main.tex
+          sed -i 's/field=science/field=humanities/' main.tex
+          sed -i 's/minted=false/minted=true/' main.tex
 
       - name: Configure twoside variant
         if: matrix.variant == 'twoside'
@@ -251,20 +247,31 @@ jobs:
         run: |
           sed -i 's/field=science/field=humanities/' main.tex
 
+      - name: Configure algo=algorithm2e variant
+        if: matrix.variant == 'algo-algorithm2e'
+        run: |
+          sed -i 's/algo=algpseudocode/algo=algorithm2e/' main.tex
+
       - name: Verify variant configuration
         run: |
           git diff main.tex
-          if [ "${{ matrix.variant }}" = "minted-false" ] || [ "${{ matrix.variant }}" = "minimal" ]; then
-            grep -q 'minted=false' main.tex || { echo "ERROR: minted=false not set"; exit 1; }
+          if [ "${{ matrix.variant }}" = "minted-true" ]; then
+            grep -q 'minted=true' main.tex || { echo "ERROR: minted=true not set"; exit 1; }
           fi
-          if [ "${{ matrix.variant }}" = "bibtex" ] || [ "${{ matrix.variant }}" = "minimal" ]; then
+          if [ "${{ matrix.variant }}" = "bibtex" ]; then
             grep -q 'biblatex=false' main.tex || { echo "ERROR: biblatex=false not set"; exit 1; }
           fi
           if [ "${{ matrix.variant }}" = "twoside" ]; then
             grep -q 'twoside' main.tex || { echo "ERROR: twoside not set"; exit 1; }
           fi
-          if [ "${{ matrix.variant }}" = "humanities" ]; then
+          if [ "${{ matrix.variant }}" = "humanities" ] || [ "${{ matrix.variant }}" = "humanities-minted" ]; then
             grep -q 'field=humanities' main.tex || { echo "ERROR: field=humanities not set"; exit 1; }
+          fi
+          if [ "${{ matrix.variant }}" = "humanities-minted" ]; then
+            grep -q 'minted=true' main.tex || { echo "ERROR: minted=true not set"; exit 1; }
+          fi
+          if [ "${{ matrix.variant }}" = "algo-algorithm2e" ]; then
+            grep -q 'algo=algorithm2e' main.tex || { echo "ERROR: algo=algorithm2e not set"; exit 1; }
           fi
 
       - name: Compile LaTeX document
@@ -327,4 +334,53 @@ jobs:
         with:
           name: all-compiled-documents
           path: "*.pdf"
+          retention-days: 90
+
+  # Build release PDFs on version tags (science + humanities, Linux xelatex-only)
+  build-release-pdfs:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - field: science
+            sed_science: ''
+          - field: humanities
+            sed_science: 's/field=science/field=humanities/'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install TeX Live
+        uses: tex-live/setup-texlive-action@v4
+        with:
+          version: 2026
+          packages: ${{ env.TL_PACKAGES }}
+        env:
+          SETUP_TEXLIVE_ACTION_NO_CACHE_ON_FAILURE: 1
+
+      - name: Configure field
+        if: matrix.field == 'humanities'
+        run: |
+          sed -i '${{ matrix.sed_science }}' main.tex
+
+      - name: Compile LaTeX document
+        run: |
+          make ENGINE=-xelatex all
+
+      - name: Rename PDF
+        if: success()
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"
+          mv main.pdf "TongjiThesis-v${VERSION}-${{ matrix.field }}.pdf"
+
+      - name: Upload PDF
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-pdf-${{ matrix.field }}
+          path: TongjiThesis-v*.pdf
           retention-days: 90

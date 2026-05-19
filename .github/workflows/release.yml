@@ -14,7 +14,7 @@ on:
       - ".github/workflows/release.yml"
       - "package.json"
     tags:
-      - "v*"  # Also trigger on version tags (paths filter ignored for tags)
+      - "v[0-9]+.[0-9]+.[0-9]+"  # Full semver tags only (exclude floating vX.Y tags)
   pull_request:
     branches: [master, dev]
     paths:
@@ -208,7 +208,7 @@ jobs:
             fullwidthstop=false,
             fontset=fandol,
             times=false,
-            minted=true,
+            minted=false,
             biblatex=true,
           ]{tongjithesis}
 
@@ -409,7 +409,7 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success' &&
-       startsWith(github.event.workflow_run.head_branch, 'v'))
+       github.event.workflow_run.head_branch == format('v{0}', needs.package.outputs.version))
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -417,6 +417,9 @@ jobs:
     env:
       PACKAGE_VERSION: ${{ needs.package.outputs.version }}
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
       - name: Check if release already exists
         id: check
         run: |
@@ -435,12 +438,11 @@ jobs:
         with:
           name: release-packages-v${{ env.PACKAGE_VERSION }}
 
-      - name: Download compiled PDFs from test workflow
+      - name: Download release PDFs from test workflow
         if: steps.check.outputs.exists == 'false'
         run: |
-          mkdir -p compiled-pdfs
+          mkdir -p release-pdfs
 
-          # Use the exact triggering test run ID when available, otherwise find latest
           if [ "${{ github.event_name }}" = "workflow_run" ]; then
             WORKFLOW_RUN_ID="${{ github.event.workflow_run.id }}"
           else
@@ -454,23 +456,50 @@ jobs:
           fi
 
           if [ -z "$WORKFLOW_RUN_ID" ] || [ "$WORKFLOW_RUN_ID" = "null" ]; then
-            echo "No successful test run found. PDFs will not be included."
+            echo "No successful test run found. Release PDFs will not be included."
             echo "Tip: Run the test workflow first, then re-trigger this release."
             exit 0
           fi
 
-          echo "Downloading PDFs from test run: $WORKFLOW_RUN_ID"
-          if gh run download "$WORKFLOW_RUN_ID" \
+          echo "Downloading release PDFs from test run: $WORKFLOW_RUN_ID"
+          for field in science humanities; do
+            gh run download "$WORKFLOW_RUN_ID" \
               --repo "$GITHUB_REPOSITORY" \
-              --name all-compiled-documents \
-              --dir compiled-pdfs 2>/dev/null; then
-            echo "Downloaded PDFs:"
-            ls -la compiled-pdfs/*.pdf
-          else
-            echo "Could not download compiled PDFs. Continuing without them."
-          fi
+              --name "release-pdf-${field}" \
+              --dir release-pdfs 2>/dev/null || true
+          done
+          echo "Downloaded PDFs:"
+          ls -la release-pdfs/*.pdf 2>/dev/null || echo "No release PDFs found"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get previous version
+        if: steps.check.outputs.exists == 'false'
+        id: prev
+        run: |
+          PREV=$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || true)
+          echo "tag=$PREV" >> "$GITHUB_OUTPUT"
+          echo "version=${PREV#v}" >> "$GITHUB_OUTPUT"
+          echo "Previous release: ${PREV:-none}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Read release template
+        if: steps.check.outputs.exists == 'false'
+        id: template
+        run: |
+          BODY=$(sed \
+            -e "s/PREV_VERSION_TOKEN/${{ steps.prev.outputs.version }}/g" \
+            -e "s/VERSION_TOKEN/$PACKAGE_VERSION/g" \
+            .github/release_template.md)
+          if [ -z "${{ steps.prev.outputs.version }}" ]; then
+            BODY=$(echo "$BODY" | sed '/PREV_VERSION_TOKEN\|完整对比\|Full changelog/d')
+          fi
+          {
+            echo "body<<EOF"
+            echo "$BODY"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         if: steps.check.outputs.exists == 'false'
@@ -478,47 +507,12 @@ jobs:
         with:
           tag_name: v${{ env.PACKAGE_VERSION }}
           name: "TongjiThesis v${{ env.PACKAGE_VERSION }}"
-          body: |
-            ## TongjiThesis LaTeX Class v${{ env.PACKAGE_VERSION }}
-
-            [EDIT THIS SECTION: Add your release notes, changelog, and acknowledgments here]
-
-            This release contains multiple download options for the Tongji University undergraduate thesis template.
-
-            ### Download Options
-
-            **CTAN Package** (for LaTeX package distribution):
-            - `tongjithesis-ctan-v${{ env.PACKAGE_VERSION }}.tar.gz`
-            - `tongjithesis-ctan-v${{ env.PACKAGE_VERSION }}.zip`
-
-            **Complete Source Code** (for end users):
-            - `tongjithesis-source-v${{ env.PACKAGE_VERSION }}.tar.gz`
-            - `tongjithesis-source-v${{ env.PACKAGE_VERSION }}.zip`
-
-            **Compiled Examples** (preview final output):
-            - PDFs compiled on Linux / macOS / Windows with XeLaTeX and LuaLaTeX
-
-            ### Quick Start
-
-            Download the source archive, extract, edit `main.tex`, and compile with XeLaTeX or LuaLaTeX.
-
-            ### Requirements
-            - XeLaTeX or LuaLaTeX engine
-            - Complete TeX distribution (TeX Live 2026+ recommended)
-            - Python with Pygments (optional, for minted code highlighting)
-
-            ### Links
-            - [GitHub Repository](https://github.com/TJ-CSCCG/TongjiThesis)
-            - [Overleaf Template](https://www.overleaf.com/latex/templates/tongji-university-undergraduate-thesis-template/tfvdvyggqybn)
-
-            ---
-            **Note**: This is a draft release. Edit the sections above and publish when ready.
+          body: ${{ steps.template.outputs.body }}
           files: |
             ctan/tongjithesis-ctan-v${{ env.PACKAGE_VERSION }}.tar.gz
             ctan/tongjithesis-ctan-v${{ env.PACKAGE_VERSION }}.zip
-            tongjithesis-source-v${{ env.PACKAGE_VERSION }}.tar.gz
-            tongjithesis-source-v${{ env.PACKAGE_VERSION }}.zip
-            compiled-pdfs/tongjithesis-*.pdf
+            release-pdfs/TongjiThesis-v${{ env.PACKAGE_VERSION }}-science.pdf
+            release-pdfs/TongjiThesis-v${{ env.PACKAGE_VERSION }}-humanities.pdf
           draft: true
           prerelease: false
           fail_on_unmatched_files: false

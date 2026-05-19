@@ -109,8 +109,9 @@ Configure in `main.tex` via `\documentclass`:
   fullwidthstop=circle, % Period style: circle keeps "。" (default) / dot replaces with "．"
   fontset=fandol,       % Font set passed to ctex, default is fandol
   times=false,          % true: system Times New Roman; false: newtx (default)
-  minted=true,          % true: minted highlighting (needs Python+Pygments); false: listings
+  minted=false,         % true: minted highlighting (needs Python+Pygments); false: listings (default)
   biblatex=true,        % true: biblatex+biber (default); false: bibtex+gbt7714
+  algo=algpseudocode,   % algpseudocode (default): algorithm+algorithmicx; algorithm2e: standalone algorithm2e package
 ]{tongjithesis}
 
 \tjbibresource{bib/note.bib}  % Specify bib files (supports multiple, comma-separated)
@@ -122,17 +123,23 @@ Configure in `main.tex` via `\documentclass`:
 ### Font Selection
 
 - **Windows users**: Use `fontset=windows` — SimSun / SimHei / KaiTi / FangSong are included with the OS and provide broader coverage.
+- **macOS users**: Use `fontset=mac` — Songti SC / Heiti SC / STFangsong / Kaiti SC are included with macOS, zero-config.
 - **Cross-platform users**: The default `fontset=fandol` (shipped with TeX Live, zero-config) is recommended. For broader character coverage, download `adobe` / `founder` / `windows` fonts from [cjk-fonts-for-ctex](https://github.com/TJ-CSCCG/cjk-fonts-for-ctex), install them to your system, then switch the `fontset`.
 
 > [!NOTE]
 > Run `fc-cache -fv` after installing new fonts to refresh the font cache.
 
-### Code Highlighting
+### Code Highlighting & Algorithm Typesetting
 
-1. **`minted`** (default): Python-based (Pygments) with richer syntax highlighting. Requires Python with `pygments` installed (`pip install pygments`).
-2. **`listings`**: Pure LaTeX, no external dependencies.
+#### Code Highlighting
 
-Set `minted=false` in `main.tex` to switch. If you encounter `minted`-related errors, switch to `minted=false`.
+1. **`listings`** (default): Pure LaTeX, no external dependencies. Suitable for most use cases.
+2. **`minted`**: Python-based (Pygments) with richer syntax highlighting. Set `minted=true` in `main.tex` to enable. Requires Python 3.11–3.13 with `pygments` installed (`pip install pygments`). If you have multiple Python versions installed, use `\renewcommand{\MintedPython}{/path/to/python}` to specify the Python interpreter for minted.
+
+#### Algorithm Typesetting
+
+1. **`algpseudocode`** (default): Uses `algorithm` + `algorithmicx` + `algpseudocode` packages with `\State`, `\If`, `\For` commands.
+2. **`algorithm2e`**: Standalone `algorithm2e` package with a different syntax. Set `algo=algorithm2e` in `main.tex` to switch.
 
 ## Contributing & Project History
 
