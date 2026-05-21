@@ -49,9 +49,45 @@ PSM（Penetration Testing State Machine）是AutoPT的核心流程控制组件�
 
 改进版首先在全局流程上重构了PSM状态机的转移逻辑。与原版只能在Exploit失败后退出不同，系统在Scan阶段结束后增加了一次条件判断。该条件判断的触发机制与边界情况处理如下：
 
-\textbf{判断依据。}条件判断并非基于Agent的Final Answer字段进行简单的非空检查，而是调用独立的parse\_vuln函数对Scan Agent的全部输出文本进行结构化解析。parse\_vuln使用正则表达式从输出中提取漏洞描述块，每个块需同时包含漏洞类型标识（如VulnType、漏洞名称关键词）和目标URL/端口信息，两者缺一不可。当提取到的有效漏洞条目数为零时，才判定为扫描结果为空。这一设计的边界条件在于：若Agent输出中包含漏洞名称但缺少可定位的目标信息（如仅有“可能存在SQL注入”而缺少具体URL），parse\_vuln仍将其视为无效条目；反之，若Agent因网络超时或工具调用异常而输出了错误信息，parse\_vuln也不会从中误提取出漏洞条目。
+\textbf{判断依据。}条件判断并非基于Agent的Final Answer字段进行检查，而是调用独立的parse\_vuln函数对Scan Agent的输出文本进行结构化解析。parse\_vuln使用正则表达式从输出中提取单个漏洞扫描结果，每一项需包含漏洞类型标识（如VulnType、漏洞名称关键词）和目标URL/端口信息，两者缺一不可。当提取到的有效漏洞条目数为零时，才判定为扫描结果为空。若Agent输出中包含漏洞名称但缺少可定位的目标信息（如仅有“可能存在SQL注入”而缺少具体URL），parse\_vuln仍将其视为无效条目；反之，若Agent因网络超时或工具调用异常而输出了错误信息，parse\_vuln也不会从中误提取出漏洞条目。
 
-\textbf{触发后的处理。}当parse\_vuln返回空列表时，系统执行三步操作：(1) 向全局状态字典写入\texttt{scan\_failed=True}标志；(2) 调用\texttt{emit\_log}记录一条INFO级别的日志，内容为“Scan阶段未发现可利用漏洞，流程提前终止”；(3) 跳过下游任务构造函数\texttt{\_build\_inquire\_input}和\texttt{\_build\_exploit\_input}的调用。LangGraph的状态机路由函数\texttt{router}在每次状态转移前检查\texttt{scan\_failed}标志，若为True则直接返回\texttt{\_\_end\_\_}终端节点标识。整条测试链路就此终止，如\cref{fig:psm}所示：
+\begin{Verbatim}[mathescape=false]
+def parse_vuln(text: str) -> list:
+    vulns = []
+    color_codes = r'\x1b\[([0-?]*[ -/]*[@-~])'
+    raw_text = re.sub(color_codes, '', text)
+    lines = raw_text.splitlines()
+    vuln_info = None
+    for line in lines:
+        if line.startswith('[Vuln: '):
+            vuln_info = {}
+            vuln_match = re.search(r'\[Vuln: (.*?)\]', line)
+            if vuln_match:
+                vuln_info['vuln'] = vuln_match.group(1)
+        elif vuln_info:
+            match = re.search(r'(\w+)\s+"(.*?)"', line)
+            if match:
+                vuln_info[match.group(1).lower()] = match.group(2)
+            elif line.startswith('Payload'):
+                match = re.search(r'Payload\s+"(.*?)"', line)
+                if match:
+                    vuln_info['payload'] = match.group(1)
+            elif line.startswith('Links'):
+                match = re.search(r'Links\s+\[(.*?)\]', line)
+                if match:
+                    links = match.group(1).split(', ')
+                    vuln_info['links'] = [link.strip('"') for link in links]
+            elif line.startswith('level'):
+                match = re.search(r'level\s+"(.*?)"\s*', line)
+                if match:
+                    vuln_info['level'] = match.group(1)
+            elif 'target' in vuln_info and 'vulntype' in vuln_info and 'vuln' in vuln_info:
+                vulns.append(vuln_info)
+                vuln_info = None
+    return vulns
+\end{Verbatim}
+
+\textbf{触发后的处理。}当parse\_vuln返回列表为空时，系统执行三步操作：(1) 向全局状态中写入scan\_failed=True标志；(2) 调用日志回调函数记录一条标识为INFO的日志，内容为“Scan阶段未发现可利用漏洞，流程提前终止”能够在 web console 中实时显示；(3) 跳过下游的后续状态和Agent。LangGraph的状态机路由函数在状态转移前检查scan\_failed标志，若为True则直接返回\_\_end\_\_标志，如\cref{fig:psm}所示：
 
 \begin{figure}[htbp]
 \centering
@@ -285,16 +321,16 @@ def _summarize_tool_output(self, text: str, max_chars: int = 2000) -> str:
     \toprule
 层级 & 内容 & 保留策略 \\
     \midrule
-L1 & 当前任务目标（Final Goal）与选定漏洞 & 完整保留 \\
+L1 & 当前任务目标（包括靶机地址、漏洞列表、成功标识等） & 完整保留 \\
     \midrule
-L2 & Scan阶段漏洞列表 & 每条仅保留vulntype、level、target三个字段 \\
+L2 & 历史对话信息 & 对最近第三条及以前的对话使用LLM摘要 \\
     \midrule
-L3 & 最近2条工具观察记录 & 各限500字符，经LLM摘要 \\
+L3 & 最近2条Observation记录 & 各限500字符，已在工具输出时摘要处理 \\
     \bottomrule
 \end{tabular}
 \end{table}
 
-L1层确保Agent始终清楚“要做什么”和“针对哪个漏洞”；L2层提供扫描阶段的关键发现，但通过截取Top 3和字段过滤将原本可能长达数千字符的扫描报告压缩到几行；L3层仅保留最近两条工具交互的摘要，避免早期的冗余历史挤占Token窗口。配合前面的工具输出即时摘要，两层压缩叠加后，多轮ReAct循环中的上下文长度基本可控。
+L1层完整保留当前任务的目标信息，确保Agent在跨阶段上下文中始终清楚"要做什么"和"针对哪个漏洞"；L2层处理历史对话信息，对最近两条以外（即第三条及更早）的对话使用LLM做摘要压缩，保留关键决策；L3层仅保留最近两次工具调用的Observation记录，每条限制为500字符，避免工具过长输出占用上下文窗口。配合前面的工具输出即时摘要，两层压缩叠加后，多轮ReAct循环中的上下文长度基本可控。
 
 \section{工具扩展与机制优化}
 
