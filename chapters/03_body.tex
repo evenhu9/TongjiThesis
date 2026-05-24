@@ -41,9 +41,9 @@
 
 \section{PSM流程控制机制优化}
 
-PSM（Penetration Testing State Machine）是AutoPT的核心流程控制组件，负责将侦察、筛选、情报检索、漏洞利用和结果验证五个阶段串联为一条完整的自动化渗透测试链路。原版PSM在实际运行中暴露出多方面不足：Scan阶段仅使用xray对默认端口扫描，无法覆盖非标准端口上的服务；Inquire Agent的PoC提取没有容错机制，格式错误即全盘丢失；Check阶段将模型推理文本与工具真实输出混在一起做匹配，容易产生误判；各Agent的提示词缺乏统一规范，输出格式和角色边界模糊；工具返回的冗长原始输出直接拼入上下文，快速耗尽Token窗口。
+PSM（Penetration Testing State Machine）是AutoPT的核心流程控制组件，负责将侦察、筛选、情报检索、漏洞利用和结果验证五个阶段串联为一条完整的自动化渗透测试链路。原版PSM在实际运行中暴露出多方面不足：Scan阶段仅使用xray对默认端口扫描，无法覆盖非标准端口上的服务；Check阶段将模型推理文本与工具真实输出混在一起做匹配，容易产生误判；各Agent的提示词缺乏统一规范，输出格式和角色边界模糊；工具返回的冗长原始输出直接拼入上下文，快速耗尽Token窗口。
 
-本节分别从状态转移优化、扫描流程细化、PoC提取容错、结果验证可靠性、提示词设计和上下文管理六个方面说明改进方案。
+本节分别从状态转移优化、扫描流程细化、结果验证可靠性、提示词设计和上下文管理五个方面说明改进方案。
 
 \subsection{状态转移与提前退出}
 
@@ -96,7 +96,7 @@ def parse_vuln(text: str) -> list:
 \label{fig:psm}
 \end{figure}
 
-\textbf{边界情况处理。}需要考虑两种特殊场景。其一，若LLM输出格式不符合ReAct规范（如Final Answer字段缺失但推理文本中包含漏洞信息），parse\_vuln会回退到解析整个Agent输出文本而非仅解析Final Answer字段，这与3.2.3节的多层级容错提取机制是独立互补的。前者作用于全局状态转移的决策层面，后者作用于Inquire Agent的PoC提取层面。其二，若parse\_vuln本身因正则匹配异常而抛出意外错误（如输出文本包含畸形Unicode字符导致正则引擎回溯爆炸），系统通过try-except捕获异常，默认行为是保守处理（不设置scan\_failed标志），将控制流正常传递给下游，避免因解析器自身bug而错误终止有效的测试链路。
+\textbf{边界情况处理。}需要考虑两种特殊场景。其一，若LLM输出格式不符合ReAct规范（如Final Answer字段缺失但推理文本中包含漏洞信息），parse\_vuln会回退到解析整个Agent输出文本而非仅解析Final Answer字段。其二，若parse\_vuln本身因正则匹配异常而抛出意外错误（如输出文本包含畸形Unicode字符导致正则引擎回溯爆炸），系统通过try-except捕获异常，默认行为是保守处理（不设置scan\_failed标志），将控制流正常传递给下游，避免因解析器自身bug而错误终止有效的测试链路。
 
 与原版相比，这一改进使得对于没有暴露漏洞的目标，系统执行完Scan阶段即可结束，直接跳过Inquire和Exploit两个Agent的调用（原版在此场景下仍会完整执行五个阶段，平均浪费约200秒和15K Token）。
 
@@ -156,32 +156,6 @@ def parse_vuln(text: str) -> list:
 
 当Exploit Agent面对一个Elasticsearch的靶机时，可以直接从提示词中获取攻击提示（如“Script injection via \_search API, check /\_search endpoint”），不需要在通用知识中检索。这一设计的预期影响是：Exploit Agent的首次利用尝试将更加精准，从而减少无效的试错迭代次数和对应的Token消耗。实验数据印证了本文的预期，改进版的Exploit Agent在复杂漏洞中平均工具调用次数从原版的7.2次降至4.8次（降低33\%，见4.4.1节）
 
-\subsection{PoC多层级容错提取}
-
-Inquire Agent的核心职责是从开源渠道获取可执行的PoC并适配为下游Exploit Agent可以直接执行的命令序列。然而在实际运行中，Inquire Agent经常因为输出格式不符合ReAct规范而耗尽迭代次数，此时获取到的poc列表可能为空，原版系统直接丢弃这轮输出，导致即使Agent的推理过程中已经包含了有价值的PoC信息也无法被利用。
-
-改进版通过多层级容错提取机制来提升PoC提取的可靠性。在Inquire Agent执行完毕后，系统会依据下述优先级逐层尝试提取能够执行的PoC命令：
-
-\begin{table}[htbp]
-\centering
-\caption{PoC容错提取层级} \label{tab:ch3:3}
-  \renewcommand{\arraystretch}{1.3}
-\begin{tabular}{l>{\raggedright\arraybackslash}p{3cm}>{\raggedright\arraybackslash}p{7cm}}
-    \toprule
-提取层级 & 数据来源 & 适用场景 \\
-    \midrule
-层级1 & Agent的Final Answer输出 & Agent正常完成，Final Answer中包含完整PoC \\
-    \midrule
-层级2 & Agent推理文本（agent\_log） & Agent因格式错误未能输出Final Answer，但推理过程中生成了有效命令 \\
-    \midrule
-层级3 & ReadHTML工具的原始返回内容 & Agent没能正确提取PoC，但工具已经成功抓取了包含命令的网页内容 \\
-    \midrule
-层级4 & Final Answer或最后一次工具输出（兜底） & 以上层级均未提取到有效命令，将原始输出整体传递给Exploit Agent \\
-    \bottomrule
-\end{tabular}
-\end{table}
-
-提取函数内部通过正则匹配curl命令模式、Markdown代码块和HTTP请求模板三种格式，尽可能从非结构化文本中还原出可执行指令。提取到的PoC命令存入独立字段poc\_steps，在构建Exploit Agent输入时以纯文本方式拼入{input}变量值（而非经过PromptTemplate解析），从而避免PoC中的JSON花括号等特殊字符被误解析。
 
 \subsection{Check动态结果匹配}
 
@@ -517,7 +491,7 @@ Web Console 后端采用 RESTful 风格设计，完整接口列表见附录\ref{
 
 本章围绕开题报告提出的三个核心问题，从流程控制、工具扩展和管理界面三个方面说明了改进系统的设计与实现。
 
-流程控制部分（3.2节，对应问题一）中，系统首先在PSM状态机的状态转移逻辑中引入条件判断，让PSM状态机能够提前终止。之后对于多种状态阶段做针对性改进：将Scan阶段拆分为端口发现、服务知识匹配、漏洞扫描和结果评估四个子阶段；设计inquire阶段的容错提取逻辑提升PoC获取的可靠性；改进了Check阶段的验证机制，将匹配域缩小至工具真实输出并引入LLM判断与正则兜底的双层校验。随后通过统一ReAct基线模板与角色差异化提示词规范了各Agent的输出格式和行为边界；通过工具输出即时摘要和结构化上下文组装实现了上下文压缩机制。
+流程控制部分（3.2节，对应问题一）中，系统首先在PSM状态机的状态转移逻辑中引入条件判断，让PSM状态机能够提前终止。之后对于多种状态阶段做针对性改进：将Scan阶段拆分为端口发现、服务知识匹配、漏洞扫描和结果评估四个子阶段；改进了Check阶段的验证机制，将匹配域缩小至工具真实输出并引入LLM判断与正则兜底的双层校验。随后通过统一ReAct基线模板与角色差异化提示词规范了各Agent的输出格式和行为边界；通过工具输出即时摘要和结构化上下文组装实现了上下文压缩机制。
 
 工具扩展部分（3.3节，对应问题二）中，系统新增了三个自定义浏览器扩展工具补足表单交互能力，同时实现了多级容错的ReAct解析器以适配思维链模型，并增强了ReadHTML工具的PoC自动提取能力。
 
