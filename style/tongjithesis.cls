@@ -998,42 +998,42 @@
 \newlength{\covermaxwidth}
 \newlength{\coverparwidth}
 
-\newcommand{\ulinecentered}[1]{
+\newcommand{\ulinecentered}[1]{%
   \bgroup
   \let\\\relax
-  \setlength{\covertextwidth}{\widthof{#1}}
+  \setlength{\covertextwidth}{\widthof{#1}}%
   \egroup
-  \setlength{\covermaxwidth}{20em}
+  \setlength{\covermaxwidth}{20em}%
   \ifdim\covertextwidth > \covermaxwidth
     \ifdim\covertextwidth > 1.95\covermaxwidth
-      \setlength{\coverparwidth}{0.53\covertextwidth}
-      \pgfmathsetmacro{\coverscale}{\covermaxwidth / \coverparwidth}
+      \setlength{\coverparwidth}{0.53\covertextwidth}%
+      \pgfmathsetmacro{\coverscale}{\covermaxwidth / \coverparwidth}%
       \uline{%
         \scalebox{\coverscale}[1]{%
           \parbox[b]{\coverparwidth}{%
             \centering
             \renewcommand{\baselinestretch}{\tjcoverlinestretch}\selectfont
-            #1%
+            #1\strut
           }%
         }%
-      }
+      }%
     \else
       \uline{%
         \parbox[b]{\covermaxwidth}{%
           \centering
           \renewcommand{\baselinestretch}{\tjcoverlinestretch}\selectfont
-          #1%
+          #1\strut
         }%
-      }
+      }%
     \fi
   \else
     \uline{%
       \parbox[b]{\covermaxwidth}{%
         \centering
         \renewcommand{\baselinestretch}{\tjcoverlinestretch}\selectfont
-        #1%
+        #1\strut
       }%
-    }
+    }%
   \fi
 }
 
