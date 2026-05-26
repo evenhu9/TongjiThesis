@@ -32,7 +32,7 @@
 
 用户将目标地址、必要参数提交后，系统会创建任务。数据在各层之间的流转路径如\cref{fig:dataflow}所示：首先由Scan Agent完成端口扫描和漏洞扫描，再到VulnSelect阶段选择一个漏洞进入后续验证；随后Inquire Agent 通过GitHub等外部源检索PoC，Exploit Agent根据检索的结果进行多步利用操作，最终Check阶段结合语义判断和正则匹配来验证利用是否成功。执行过程中所产生的日志和统计数据会持续回传到Web Console，由前端展示整个系统的运行过程。
 
-\begin{figure}[htbp]
+\begin{figure}[!ht]
 \centering
 \includegraphics[width=0.65\textwidth]{image2}
 \caption{自动化渗透测试数据流}
@@ -89,7 +89,7 @@ def parse_vuln(text: str) -> list:
 
 \textbf{触发后的处理。}当parse\_vuln返回列表为空时，系统执行三步操作：(1) 向全局状态中写入scan\_failed=True标志；(2) 调用日志回调函数记录一条标识为INFO的日志，内容为“Scan阶段未发现可利用漏洞，流程提前终止”能够在 web console 中实时显示；(3) 跳过下游的后续状态和Agent。LangGraph的状态机路由函数在状态转移前检查scan\_failed标志，若为True则直接返回\_\_end\_\_标志，如\cref{fig:psm}所示：
 
-\begin{figure}[htbp]
+\begin{figure}[!ht]
 \centering
 \includegraphics[width=0.6\textwidth]{image4}
 \caption{改进前后状态转移模型对比}
@@ -129,7 +129,7 @@ def parse_vuln(text: str) -> list:
 
 子阶段1通过nmap的-p-参数扫描全部65535个端口，配合-sV -sC进行服务指纹识别，将端口发现的覆盖范围从单一默认端口扩展到了完整端口空间。nmap识别出的服务类型（如Elasticsearch、Tomcat）一方面用于判定哪些端口运行着HTTP服务，供子阶段3的xray扫描确定目标；另一方面作为子阶段2服务知识匹配的输入，整体流程如\cref{fig:portscan}所示：
 
-\begin{figure}[htbp]
+\begin{figure}[!ht]
 \centering
 \includegraphics[width=0.65\textwidth]{image3}
 \caption{动态端口发现流程}
