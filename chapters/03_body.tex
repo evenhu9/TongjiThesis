@@ -116,7 +116,7 @@ def parse_vuln(text: str) -> list:
     \midrule
 1 & 端口发现与服务识别 & EXECMD (nmap) & 全端口SYN扫描（-p-）发现开放端口，-sV -sC识别服务类型与版本 \\
     \midrule
-2 & 服务知识匹配 & services.yml知识库 & 根据识别出的服务类型匹配知识库条目，为下游Exploit Agent注入CVE特征与攻击线索 \\
+2 & 服务知识匹配 & services.yml知识库 & 根据服务类型匹配知识库条目，为Exploit Agent注入CVE特征与攻击线索 \\
     \midrule
 3 & 漏洞扫描 & EXECMD (xray) & 对子阶段1发现的所有HTTP端口逐一执行Web漏洞扫描 \\
     \midrule
@@ -285,7 +285,7 @@ def _summarize_tool_output(self, text: str, max_chars: int = 2000) -> str:
 
 \paragraph{跨阶段结构化上下文组装}
 
-当Agent需要引用其他阶段的历史信息时（典型场景如Exploit Agent需要了解Scan阶段发现了哪些漏洞），改进版不是将全部历史消息拼接传入，而是按层级组装一份精简的结构化上下文。本文将信息分为三个层级，按重要性递减的顺序拼接：
+当Agent需要引用其他阶段的历史信息时（典型场景如Exploit Agent需要了解Scan阶段发现了哪些漏洞），改进版不是将全部历史消息拼接传入，而是按层级组装一份精简的结构化上下文。本文将信息分为三个层级，按重要性递减的顺序拼接，如表\ref{tab:ch3:2}所示：
 
 \begin{table}[htbp]
 \centering
@@ -314,7 +314,7 @@ L1层完整保留当前任务的目标信息，确保Agent在跨阶段上下文�
 
 LangChain的PlayWrightBrowserToolkit提供了页面导航、元素点击、文本提取等基础能力，但缺少三类在渗透测试中高频使用的交互操作：在输入框中填写文本（如安装向导中的站点名称、管理员密码）、在下拉框中选择选项（如选择数据库类型SQLite）、以及在页面跳转或AJAX加载后等待目标元素出现。原版系统遇到这类场景时，Agent只能尝试通过click\_element和手动构造JavaScript来间接实现，成功率极低。
 
-改进版在Playwright之上封装了三个自定义浏览器扩展工具，继承LangChain的BaseBrowserTool基类，与原生工具包共享同一个浏览器实例：
+改进版在Playwright之上封装了三个自定义浏览器扩展工具，继承LangChain的BaseBrowserTool基类，与原生工具包共享同一个浏览器实例，三个工具的功能说明见表\ref{tab:ch3:4}：
 
 \begin{table}[htbp]
 \centering
