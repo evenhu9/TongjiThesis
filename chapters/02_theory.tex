@@ -67,6 +67,7 @@ S是状态集合，对应渗透测试中的各个阶段；A是动作集合，主
 
 AutoPT的PSM由五个状态串联而成，依次覆盖了信息收集、漏洞筛选、情报检索、漏洞利用和结果验证几个环节。Scan负责端口扫描和服务识别，输出攻击面信息；VulnSelect从扫描结果里筛选出值得尝试的漏洞；Inquire在正式利用之前去GitHub等外部渠道检索对应的PoC和利用方法；Exploit拿着这些信息执行具体的漏洞利用操作；Check验证利用是否成功，如果失败了，可以回退到Exploit换个方式再试，或者跳回VulnSelect换一个漏洞。具体状态转移关系见\cref{fig:psm_original}。
 
+
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=0.6\textwidth]{image6}

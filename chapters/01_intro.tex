@@ -39,7 +39,7 @@ AutoAttacker & 无显式状态机，依赖LLM自由探索后渗透阶段 & 仅�
     \midrule
 MAPTA & 线性三Agent流水线，无失败回退机制 & 预定义Shell命令列表，不支持浏览器操作 & Agent间通过文件系统通信，无状态同步 \\
     \midrule
-AutoPT（原版）& 五状态PSM，支持Exploit→Check回退，但Scan阶段粒度过粗 & EXECMD+ReadHTML+Playwright（缺表单交互） & 纯命令行，不可视化 \\
+AutoPT（原版）& 五状态PSM，支持Exploit→Check回退，但Scan阶段粒度过粗 & EXECMD + ReadHTML + Playwright（缺表单交互） & 纯命令行，不可视化 \\
     \midrule
 \textbf{本文AutoPT+} & \textbf{细化Scan为四子阶段，引入提前终止与Check双层校验} & \textbf{新增3个浏览器工具+多级容错解析器+PoC增强提取} & \textbf{Web Console六大模块，可视化监控} \\
     \bottomrule

@@ -163,7 +163,7 @@ Check阶段能够在Exploit Agent执行完成后验证漏洞利用是否成功�
 
 \paragraph{匹配域缩小为工具输出}
 
-改进版在Agent执行过程中，会把每次EXECMD和浏览器工具的原始输出分别记录到raw\_outputs["Exploit"]中，使它们与模型的推理文本分离。Check阶段的所有验证操作仅在raw\_outputs["Exploit"]上执行，不再受到LLM推理文本的干扰。
+改进版在Agent执行过程中，会把每次EXECMD和浏览器工具的原始输出分别记录到raw\_outputs[\textquotedbl Exploit\textquotedbl]中，使它们与模型的推理文本分离。Check阶段的所有验证操作仅在raw\_outputs[\textquotedbl Exploit\textquotedbl]上执行，不再受到LLM推理文本的干扰。
 
 \paragraph{LLM判断优先与正则兜底}
 
@@ -375,7 +375,7 @@ Step 5 & 全部失败，抛出异常并附带格式修复指导（列出正确�
 
 改进版实现了RobustReActParser，继承原版解析器并覆写parse方法，将解析过程设计为多级逐步降级的容错链，如表\ref{tab:ch3:5}所示。
 
-其中，Step 1的工具名规范化维护了一张已知工具名的映射表，将execmd、exec\_cmd、Execmd等变体统一映射为标准名称EXECMD，同时能从"I will use the EXECMD tool"这类整句话中通过正则提取出合法工具名。Step 2对Inquire Agent的多步PoC输出做了专门处理：即使LLM没有写Final Answer:前缀，只要文本中出现STEP 1:开头且包含可执行命令（如curl、wget等），也会被识别为有效的终止输出。
+其中，Step 1的工具名规范化维护了一张已知工具名的映射表，将execmd、exec\_cmd、Execmd等变体统一映射为标准名称EXECMD，同时能从``I will use the EXECMD tool''这类整句话中通过正则提取出合法工具名。Step 2对Inquire Agent的多步PoC输出做了专门处理：即使LLM没有写Final Answer:前缀，只要文本中出现STEP 1:开头且包含可执行命令（如curl、wget等），也会被识别为有效的终止输出。
 
 配合AgentExecutor创建时注入的\_format\_parsing\_error回调函数，解析失败时系统不再简单报错，而是返回一段结构化的格式指导消息，明确告知LLM应当使用的输出格式和可用工具列表，使模型在下一轮迭代中能够自我修正。
 
