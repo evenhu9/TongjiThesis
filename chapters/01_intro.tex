@@ -25,8 +25,6 @@ Xu等人提出的AutoAttacker\cite{Xu2024AutoAttacker}利用LLM的知识储备�
 
 Wu等人的AutoPT\cite{Wu2024AutoPT}通过渗透测试状态机（PSM）对测试流程做形式化建模，定义五元组(S, A, T, s₀, F)来描述渗透测试各阶段及转移规则，本文的工作即以此为基础。相比上述系统，AutoPT/PSM的核心优势在于将渗透测试从“Agent自主探索”转变为“状态机引导下的约束探索”，在灵活性和可控性之间取得了更好的平衡。但如2.3.3节将详述，原版PSM仍存在状态粒度过粗、工具接口不完整和缺乏图形化管理界面等问题。
 
-为便于对比，表\ref{tab:literature_comparison}从状态机设计、工具调用机制、交互逻辑三个维度对上述代表性系统进行了总结：
-
 \begin{table}[htbp]
 \centering
 \caption{代表性LLM驱动渗透测试系统对比} \label{tab:literature_comparison}
@@ -47,6 +45,8 @@ AutoPT（原版）& 五状态PSM，支持Exploit→Check回退，但Scan阶段�
     \bottomrule
 \end{tabular}
 \end{table}
+
+为便于对比，表\ref{tab:literature_comparison}从状态机设计、工具调用机制、交互逻辑三个维度对上述代表性系统进行了总结：
 
 除上述系统性工作外，也有一些研究从其他角度切入。Happe和Cito\cite{Happe2023Understanding}通过对安全从业者的实证调查，记录了人类渗透测试专家的工作习惯和决策方式。例如，专家在渗透测试中遵循“侦察→假设→验证→调整”的循环模式，而非线性执行步骤，且在遇到障碍时倾向于切换攻击向量而非重复同一路径。本文在设计Agent角色定义和提示词模板时参考了这些发现：Scan Agent的“端口发现→服务匹配→漏洞扫描→结果评估”四阶段流程对应专家的侦察与假设阶段；Exploit Agent的METHODOLOGY中“分析→准备→执行→验证→自适应切换”五步方法论对应专家的验证与调整循环；而Exploit Agent允许最多8次尝试并建议切换攻击方式（curl↔浏览器、Payload变体）的设计，则直接借鉴了专家在障碍面前切换攻击向量的行为模式。
 

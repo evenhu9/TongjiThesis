@@ -104,8 +104,6 @@ def parse_vuln(text: str) -> list:
 
 原版Scan阶段的工作流只有一条规则：``Use xray in EXECMD for scanning''。也就是说，xray扫哪个端口完全取决于传入的URL。如果漏洞服务恰好跑在9200（Elasticsearch）或8080（Tomcat）这样的非标准端口上，而URL里写的是默认的80，xray根本不会去碰那些端口，后面的流程自然也就接不上了。
 
-针对这个问题，改进版把原来一步到位的Scan拆成了端口发现、服务知识匹配、漏洞扫描和结果评估四个子阶段，每个子阶段只负责一件事。具体的执行工具和目标见表\ref{tab:ch3:1}：
-
 \begin{table}[htbp]
 \centering
 \caption{Scan阶段子阶段说明} \label{tab:ch3:1}
@@ -124,6 +122,8 @@ def parse_vuln(text: str) -> list:
     \bottomrule
 \end{tabular}
 \end{table}
+
+针对这个问题，改进版把原来一步到位的Scan拆成了端口发现、服务知识匹配、漏洞扫描和结果评估四个子阶段，每个子阶段只负责一件事。具体的执行工具和目标见表\ref{tab:ch3:1}：
 
 \paragraph{动态端口发现与服务知识库}
 
@@ -285,8 +285,6 @@ def _summarize_tool_output(self, text: str, max_chars: int = 2000) -> str:
 
 \paragraph{跨阶段结构化上下文组装}
 
-当Agent需要引用其他阶段的历史信息时（典型场景如Exploit Agent需要了解Scan阶段发现了哪些漏洞），改进版不是将全部历史消息拼接传入，而是按层级组装一份精简的结构化上下文。本文将信息分为三个层级，按重要性递减的顺序拼接，如表\ref{tab:ch3:2}所示：
-
 \begin{table}[htbp]
 \centering
 \caption{结构化上下文组装层级} \label{tab:ch3:2}
@@ -304,6 +302,8 @@ L3 & 最近2条Observation记录 & 各限500字符，已在工具输出时摘要
 \end{tabular}
 \end{table}
 
+当Agent需要引用其他阶段的历史信息时（典型场景如Exploit Agent需要了解Scan阶段发现了哪些漏洞），改进版不是将全部历史消息拼接传入，而是按层级组装一份精简的结构化上下文。本文将信息分为三个层级，按重要性递减的顺序拼接，如表\ref{tab:ch3:2}所示：
+
 L1层完整保留当前任务的目标信息，确保Agent在跨阶段上下文中始终清楚"要做什么"和"针对哪个漏洞"；L2层处理历史对话信息，对最近两条以外（即第三条及更早）的对话使用LLM做摘要压缩，保留关键决策；L3层仅保留最近两次工具调用的Observation记录，每条限制为500字符，避免工具过长输出占用上下文窗口。配合前面的工具输出即时摘要，两层压缩叠加后，多轮ReAct循环中的上下文长度基本可控。
 
 \section{工具扩展与机制优化}
@@ -313,8 +313,6 @@ L1层完整保留当前任务的目标信息，确保Agent在跨阶段上下文�
 \subsection{自定义浏览器扩展工具}
 
 LangChain的PlayWrightBrowserToolkit提供了页面导航、元素点击、文本提取等基础能力，但缺少三类在渗透测试中高频使用的交互操作：在输入框中填写文本（如安装向导中的站点名称、管理员密码）、在下拉框中选择选项（如选择数据库类型SQLite）、以及在页面跳转或AJAX加载后等待目标元素出现。原版系统遇到这类场景时，Agent只能尝试通过click\_element和手动构造JavaScript来间接实现，成功率极低。
-
-改进版在Playwright之上封装了三个自定义浏览器扩展工具，继承LangChain的BaseBrowserTool基类，与原生工具包共享同一个浏览器实例，三个工具的功能说明见表\ref{tab:ch3:4}：
 
 \begin{table}[htbp]
 \centering
@@ -333,6 +331,8 @@ wait\_for\_selector & 等待指定CSS选择器的元素在页面中出现并变�
 \end{tabular}
 \end{table}
 
+改进版在Playwright之上封装了三个自定义浏览器扩展工具，继承LangChain的BaseBrowserTool基类，与原生工具包共享同一个浏览器实例，三个工具的功能说明见表\ref{tab:ch3:4}：
+
 这三个自定义工具不需要自己去启动和关闭浏览器，它们通过BaseBrowserTool基类中的函数也能够拿到Toolkit里其他工具正在用的浏览器页面，大家共享同一个浏览器实例。三个自定义工具的错误处理也与原生工具保持一致，遇到超时不会直接抛出异常，而是会返回一条描述性的错误消息，这样Agent可以在下一轮ReAct循环中根据这条信息调整策略。
 
 select\_option工具的内部实现了两级匹配机制，优先按照<option>元素的value属性匹配，如果没有命中则降级为按可见文本标签进行匹配，以此兼容不同的HTML写法。
@@ -349,8 +349,6 @@ select\_option工具的内部实现了两级匹配机制，优先按照<option>�
 \subsection{ReAct解析器容错增强}
 
 ReAct框架要求LLM严格按照Thought → Action → Action Input的格式输出， Thought后面没有紧跟Action、Action名称拼写不规范、或者输出中混入了额外标签，解析器都会直接抛出OutputParserException。在使用带有思维链能力的模型（如DeepSeek-R1）时，模型会在输出前插入大段<thinking>...</thinking>标签，导致解析器无法定位到Action字段，Agent在每一轮循环中都会解析失败，直至耗尽迭代次数。
-
-改进版实现了RobustReActParser，继承原版解析器并覆写parse方法，将解析过程设计为多级逐步降级的容错链，如表\ref{tab:ch3:5}所示。
 
 \begin{table}[htbp]
 \centering
@@ -374,6 +372,8 @@ Step 5 & 全部失败，抛出异常并附带格式修复指导（列出正确�
     \bottomrule
 \end{tabular}
 \end{table}
+
+改进版实现了RobustReActParser，继承原版解析器并覆写parse方法，将解析过程设计为多级逐步降级的容错链，如表\ref{tab:ch3:5}所示。
 
 其中，Step 1的工具名规范化维护了一张已知工具名的映射表，将execmd、exec\_cmd、Execmd等变体统一映射为标准名称EXECMD，同时能从"I will use the EXECMD tool"这类整句话中通过正则提取出合法工具名。Step 2对Inquire Agent的多步PoC输出做了专门处理：即使LLM没有写Final Answer:前缀，只要文本中出现STEP 1:开头且包含可执行命令（如curl、wget等），也会被识别为有效的终止输出。
 
@@ -418,8 +418,6 @@ def _format_parsing_error(self, error) -> str:
 
 \subsection{技术选型}
 
-Web Console各层次的技术选型及其选择理由如表\ref{tab:ch3:6}所示。
-
 \begin{table}[htbp]
 \centering
 \caption{Web Console技术选型} \label{tab:ch3:6}
@@ -442,6 +440,8 @@ CSS & 自定义属性 + Flexbox/Grid & 实现暗色主题的响应式布局 \\
     \bottomrule
 \end{tabular}
 \end{table}
+
+Web Console各层次的技术选型及其选择理由如表\ref{tab:ch3:6}所示。
 
 \subsection{六个功能模块}
 
