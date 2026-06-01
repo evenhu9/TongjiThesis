@@ -17,8 +17,6 @@
 
 \subsection{架构层次}
 
-系统仍采用分层设计，自底向上分别是基础设施层、核心引擎层、业务逻辑层和表示层，系统总体架构如\cref{fig:arch}所示：
-
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=0.65\textwidth]{image1}
@@ -26,11 +24,11 @@
 \label{fig:arch}
 \end{figure}
 
+系统仍采用分层设计，自底向上分别是基础设施层、核心引擎层、业务逻辑层和表示层，系统总体架构如\cref{fig:arch}所示。
+
 表示层对应用户直接接触的Web Console，前端用原生JavaScript实现SPA，后端由Flask提供RESTful API。业务逻辑层负责接收HTTP请求、管理Docker容器和处理配置读写。核心引擎层是系统的调度中心，LangGraph状态机、三个Agent（Scan、Inquire、Exploit）、两个程序化处理阶段（VulnSelect、Check）以及改造后的PSM控制逻辑都在这里运行。基础设施层提供扫描、利用、浏览器自动化和容器运行等底层能力，包括nmap、xray、Playwright、GitHub API和Docker Engine。各层之间彼此解耦，调整某一层时不必牵连其他部分。项目完整目录结构见附录\ref{app:structure}。
 
 \subsection{数据流}
-
-用户将目标地址、必要参数提交后，系统会创建任务。数据在各层之间的流转路径如\cref{fig:dataflow}所示：首先由Scan Agent完成端口扫描和漏洞扫描，再到VulnSelect阶段选择一个漏洞进入后续验证；随后Inquire Agent 通过GitHub等外部源检索PoC，Exploit Agent根据检索的结果进行多步利用操作，最终Check阶段结合语义判断和正则匹配来验证利用是否成功。执行过程中所产生的日志和统计数据会持续回传到Web Console，由前端展示整个系统的运行过程。
 
 \begin{figure}[!ht]
 \centering
@@ -38,6 +36,8 @@
 \caption{自动化渗透测试数据流}
 \label{fig:dataflow}
 \end{figure}
+
+用户将目标地址、必要参数提交后，系统会创建任务。数据在各层之间的流转路径如\cref{fig:dataflow}所示。首先由Scan Agent完成端口扫描和漏洞扫描，再到VulnSelect阶段选择一个漏洞进入后续验证；随后Inquire Agent 通过GitHub等外部源检索PoC，Exploit Agent根据检索的结果进行多步利用操作，最终Check阶段结合语义判断和正则匹配来验证利用是否成功。执行过程中所产生的日志和统计数据会持续回传到Web Console，由前端展示整个系统的运行过程。
 
 \section{PSM流程控制机制优化}
 
@@ -87,14 +87,14 @@ def parse_vuln(text: str) -> list:
     return vulns
 \end{Verbatim}
 
-\textbf{触发后的处理。}当parse\_vuln返回列表为空时，系统执行三步操作：(1) 向全局状态中写入scan\_failed=True标志；(2) 调用日志回调函数记录一条标识为INFO的日志，内容为“Scan阶段未发现可利用漏洞，流程提前终止”能够在 web console 中实时显示；(3) 跳过下游的后续状态和Agent。LangGraph的状态机路由函数在状态转移前检查scan\_failed标志，若为True则直接返回\_\_end\_\_标志，如\cref{fig:psm}所示：
-
 \begin{figure}[!ht]
 \centering
 \includegraphics[width=0.6\textwidth]{image4}
 \caption{改进前后状态转移模型对比}
 \label{fig:psm}
 \end{figure}
+
+\textbf{触发后的处理。}当parse\_vuln返回列表为空时，系统执行三步操作：(1) 向全局状态中写入scan\_failed=True标志；(2) 调用日志回调函数记录一条标识为INFO的日志，内容为“Scan阶段未发现可利用漏洞，流程提前终止”能够在 web console 中实时显示；(3) 跳过下游的后续状态和Agent。LangGraph的状态机路由函数在状态转移前检查scan\_failed标志，若为True则直接返回\_\_end\_\_标志，如\cref{fig:psm}所示。
 
 \textbf{边界情况处理。}需要考虑两种特殊场景。其一，若LLM输出格式不符合ReAct规范（如Final Answer字段缺失但推理文本中包含漏洞信息），parse\_vuln会回退到解析整个Agent输出文本而非仅解析Final Answer字段。其二，若parse\_vuln本身因正则匹配异常而抛出意外错误（如输出文本包含畸形Unicode字符导致正则引擎回溯爆炸），系统通过try-except捕获异常，默认行为是保守处理（不设置scan\_failed标志），将控制流正常传递给下游，避免因解析器自身bug而错误终止有效的测试链路。
 
@@ -127,14 +127,14 @@ def parse_vuln(text: str) -> list:
 
 \paragraph{动态端口发现与服务知识库}
 
-子阶段1通过nmap的-p-参数扫描全部65535个端口，配合-sV -sC进行服务指纹识别，将端口发现的覆盖范围从单一默认端口扩展到了完整端口空间。nmap识别出的服务类型（如Elasticsearch、Tomcat）一方面用于判定哪些端口运行着HTTP服务，供子阶段3的xray扫描确定目标；另一方面作为子阶段2服务知识匹配的输入，整体流程如\cref{fig:portscan}所示：
-
 \begin{figure}[!ht]
 \centering
 \includegraphics[width=0.65\textwidth]{image3}
 \caption{动态端口发现流程}
 \label{fig:portscan}
 \end{figure}
+
+子阶段1通过nmap的-p-参数扫描全部65535个端口，配合-sV -sC进行服务指纹识别，将端口发现的覆盖范围从单一默认端口扩展到了完整端口空间。nmap识别出的服务类型（如Elasticsearch、Tomcat）一方面用于判定哪些端口运行着HTTP服务，供子阶段3的xray扫描确定目标；另一方面作为子阶段2服务知识匹配的输入，整体流程如\cref{fig:portscan}所示。
 
 子阶段2会使用config/services.yml文件，在这个文件中按服务名整理了一批常见服务的信息，每条记录除了会标注该服务的默认端口、可能出现的名称别名之外，还包括它的CVE特征关键词cve\_patterns，以及具体的漏洞探索提示exploit\_hints，后者主要是为下游的Exploit Agent指明大致的尝试方向。以下以 elasticsearch 和 tomcat 两条记录为例说明字段结构：
 
@@ -337,8 +337,6 @@ wait\_for\_selector & 等待指定CSS选择器的元素在页面中出现并变�
 
 select\_option工具的内部实现了两级匹配机制，优先按照<option>元素的value属性匹配，如果没有命中则降级为按可见文本标签进行匹配，以此兼容不同的HTML写法。
 
-三个自定义工具与LangChain原生Playwright工具的架构关系如\cref{fig:browser}所示：
-
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=0.7\textwidth]{image5}
@@ -346,11 +344,13 @@ select\_option工具的内部实现了两级匹配机制，优先按照<option>�
 \label{fig:browser}
 \end{figure}
 
+三个自定义工具与LangChain原生Playwright工具的架构关系如\cref{fig:browser}所示。
+
 \subsection{ReAct解析器容错增强}
 
 ReAct框架要求LLM严格按照Thought → Action → Action Input的格式输出， Thought后面没有紧跟Action、Action名称拼写不规范、或者输出中混入了额外标签，解析器都会直接抛出OutputParserException。在使用带有思维链能力的模型（如DeepSeek-R1）时，模型会在输出前插入大段<thinking>...</thinking>标签，导致解析器无法定位到Action字段，Agent在每一轮循环中都会解析失败，直至耗尽迭代次数。
 
-改进版实现了RobustReActParser，继承原版解析器并覆写parse方法，将解析过程设计为多级逐步降级的容错链，如表\ref{tab:ch3:5}所示：
+改进版实现了RobustReActParser，继承原版解析器并覆写parse方法，将解析过程设计为多级逐步降级的容错链，如表\ref{tab:ch3:5}所示。
 
 \begin{table}[htbp]
 \centering
@@ -418,7 +418,7 @@ def _format_parsing_error(self, error) -> str:
 
 \subsection{技术选型}
 
-Web Console各层次的技术选型及其选择理由如表\ref{tab:ch3:6}所示：
+Web Console各层次的技术选型及其选择理由如表\ref{tab:ch3:6}所示。
 
 \begin{table}[htbp]
 \centering
