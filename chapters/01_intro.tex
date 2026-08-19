@@ -7,7 +7,7 @@
 
 当前网络安全防护与渗透测试工作仍面临显著瓶颈，一方面，传统渗透测试严重依赖人工操作，安全人员需要频繁切换Nmap、Metasploit等工具完成漏洞扫描、攻击验证等多项工作，同时在多个平台之间检索漏洞情报资源，工作流程割裂、效率低下\cite{Wu2023PenTest}。加上渗透测试本身对从业者的专业技术要求很高，测试成本居高不下，难以满足大规模网络环境下的检测需求。
 
-自动化渗透测试技术因此成为研究热点。早期方案多基于规则设计\cite{Liu2024AutoScan}，适配场景单一。随着大语言模型（LLM）能力的提升，研究者开始探索以LLM驱动智能体（Agent）来实现渗透测试的自动化\cite{Isozaki2025Towards}，先后出现了PentestGPT\cite{Deng2024PentestGPT}、AutoAttacker\cite{Xu2024AutoAttacker}、PentestAgent\cite{Shen2025PentestAgent}、MAPTA\cite{David2025MAPTA}等工作（详见1.2节）。其中，Wu等人提出的AutoPT\cite{Wu2024AutoPT}引入渗透测试状态机（PSM），以有限状态机对测试流程进行建模，通过定义状态和转移规则约束LLM的决策空间，缓解了Agent在长序列任务中易陷入无效循环的问题。
+自动化渗透测试技术因此成为研究热点。早期方案多基于规则设计\cite{Liu2024AutoScan}，适配场景单一。随着大语言模型（LLM）能力的提升，研究者开始探索以LLM驱动智能体来实现渗透测试的自动化\cite{Isozaki2025Towards}，先后出现了PentestGPT\cite{Deng2024PentestGPT}、AutoAttacker\cite{Xu2024AutoAttacker}、PentestAgent\cite{Shen2025PentestAgent}、MAPTA\cite{David2025MAPTA}等工作（详见1.2节）。其中，Wu等人提出的AutoPT\cite{Wu2024AutoPT}引入渗透测试状态机（PSM），以有限状态机对测试流程进行建模，通过定义状态和转移规则约束LLM的决策空间，缓解了Agent在长序列任务中易陷入无效循环的问题。
 
 从理论角度看，LLM驱动渗透测试的核心挑战在于：LLM的推理过程本质上是基于概率的自回归生成，缺乏对渗透测试过程的因果理解，容易在长序列任务中出现目标偏移和幻觉。PSM通过状态空间的分隔来约束LLM行为，其理论意义在于将无界的自然语言推理嵌入到有界的状态转移框架中，从而在LLM的灵活性和任务的可控性之间寻求平衡。然而，现有工作对PSM的状态粒度设计、工具调用边界与Agent角色分化之间的理论关系缺乏系统分析，本文正是从这一理论缺口出发，探究“状态机约束如何约束LLM Agent在渗透测试中的行为模式并提高任务成功率”的问题。
 
