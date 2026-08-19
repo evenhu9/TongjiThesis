@@ -26,7 +26,7 @@
 
 系统仍采用分层设计，自底向上分别是基础设施层、核心引擎层、业务逻辑层和表示层，系统总体架构如\cref{fig:arch}所示。
 
-表示层对应用户直接接触的Web Console，前端用原生JavaScript实现SPA，后端由Flask提供RESTful API。业务逻辑层负责接收HTTP请求、管理Docker容器和处理配置读写。核心引擎层是系统的调度中心，LangGraph状态机、三个Agent（Scan、Inquire、Exploit）、两个程序化处理阶段（VulnSelect、Check）以及改造后的PSM控制逻辑都在这里运行。基础设施层提供扫描、利用、浏览器自动化和容器运行等底层能力，包括nmap、xray、Playwright、GitHub API和Docker Engine。各层之间彼此解耦，调整某一层时不必牵连其他部分。项目完整目录结构见附录\ref{app:structure}。
+表示层对应用户直接接触的Web Console，前端用原生JavaScript实现SPA，后端由Flask提供RESTful API。业务逻辑层负责接收HTTP请求、管理Docker容器和处理配置读写。核心引擎层是系统的调度中心，LangGraph状态机、三个Agent（Scan、Inquire、Exploit）、两个程序化处理阶段（VulnSelect、Check）以及改造后的PSM控制逻辑都在这里运行。基础设施层提供扫描、利用、浏览器自动化和容器运行等底层能力，包括nmap、xray、Playwright、GitHub API和Docker Engine。各层之间彼此解耦，调整某一层时无需联动修改其他层。项目完整目录结构见附录\ref{app:structure}。
 
 \subsection{数据流}
 
@@ -94,15 +94,15 @@ def parse_vuln(text: str) -> list:
 \label{fig:psm}
 \end{figure}
 
-\textbf{触发后的处理。}当parse\_vuln返回列表为空时，系统执行三步操作：(1) 向全局状态中写入scan\_failed=True标志；(2) 调用日志回调函数记录一条标识为INFO的日志，内容为“Scan阶段未发现可利用漏洞，流程提前终止”能够在 web console 中实时显示；(3) 跳过下游的后续状态和Agent。LangGraph的状态机路由函数在状态转移前检查scan\_failed标志，若为True则直接返回\_\_end\_\_标志，如\cref{fig:psm}所示。
+\textbf{触发后的处理。}当parse\_vuln返回列表为空时，系统执行三步操作：(1) 向全局状态中写入scan\_failed=True标志；(2) 调用日志回调函数记录一条标识为INFO的日志，内容为“Scan阶段未发现可利用漏洞，流程提前终止”，能够在Web Console中实时显示；(3) 跳过下游的后续状态和Agent。LangGraph的状态机路由函数在状态转移前检查scan\_failed标志，若为True则直接返回\_\_end\_\_标志，如\cref{fig:psm}所示。
 
 \textbf{边界情况处理。}需要考虑两种特殊场景。其一，若LLM输出格式不符合ReAct规范（如Final Answer字段缺失但推理文本中包含漏洞信息），parse\_vuln会回退到解析整个Agent输出文本而非仅解析Final Answer字段。其二，若parse\_vuln本身因正则匹配异常而抛出意外错误（如输出文本包含畸形Unicode字符导致正则引擎回溯爆炸），系统通过try-except捕获异常，默认行为是保守处理（不设置scan\_failed标志），将控制流正常传递给下游，避免因解析器自身bug而错误终止有效的测试链路。
 
-与原版相比，这一改进使得对于没有暴露漏洞的目标，系统执行完Scan阶段即可结束，直接跳过Inquire和Exploit两个Agent的调用（原版在此场景下仍会完整执行五个阶段，平均浪费约200秒和15K Token）。
+与原版相比，这一改进使得对于没有暴露漏洞的目标，系统执行完Scan阶段即可结束，直接跳过Inquire和Exploit两个Agent的调用（原版在此场景下仍会完整执行五个阶段，平均额外消耗约200秒和15K Token）。
 
 \subsection{Scan状态粒度细化}
 
-原版Scan阶段的工作流只有一条规则：``Use xray in EXECMD for scanning''。也就是说，xray扫哪个端口完全取决于传入的URL。如果漏洞服务恰好跑在9200（Elasticsearch）或8080（Tomcat）这样的非标准端口上，而URL里写的是默认的80，xray根本不会去碰那些端口，后面的流程自然也就接不上了。
+原版Scan阶段的工作流只有一条规则：``Use xray in EXECMD for scanning''。即xray的扫描目标端口完全取决于传入的URL。若漏洞服务部署在9200（Elasticsearch）或8080（Tomcat）等非标准端口上，而URL仍指向默认的80端口，xray不会对这些端口进行扫描，后续流程也将因缺少有效目标而无法继续。
 
 \begin{table}[htbp]
 \centering
@@ -123,7 +123,7 @@ def parse_vuln(text: str) -> list:
 \end{tabular}
 \end{table}
 
-针对这个问题，改进版把原来一步到位的Scan拆成了端口发现、服务知识匹配、漏洞扫描和结果评估四个子阶段，每个子阶段只负责一件事。具体的执行工具和目标见表\ref{tab:ch3:1}。
+针对这个问题，改进版将原本单一完整的Scan阶段划分为端口发现、服务知识匹配、漏洞扫描和结果评估四个子阶段，每个子阶段职责单一。具体的执行工具和目标见表\ref{tab:ch3:1}。
 
 \paragraph{动态端口发现与服务知识库}
 
@@ -136,7 +136,7 @@ def parse_vuln(text: str) -> list:
 
 子阶段1通过nmap的-p-参数扫描全部65535个端口，配合-sV -sC进行服务指纹识别，将端口发现的覆盖范围从单一默认端口扩展到了完整端口空间。nmap识别出的服务类型（如Elasticsearch、Tomcat）一方面用于判定哪些端口运行着HTTP服务，供子阶段3的xray扫描确定目标；另一方面作为子阶段2服务知识匹配的输入，整体流程如\cref{fig:portscan}所示。
 
-子阶段2会使用config/services.yml文件，在这个文件中按服务名整理了一批常见服务的信息，每条记录除了会标注该服务的默认端口、可能出现的名称别名之外，还包括它的CVE特征关键词cve\_patterns，以及具体的漏洞探索提示exploit\_hints，后者主要是为下游的Exploit Agent指明大致的尝试方向。以下以 elasticsearch 和 tomcat 两条记录为例说明字段结构：
+子阶段2会使用config/services.yml文件，该文件按服务名收录了常见服务的信息，每条记录除标注默认端口和可能的名称别名外，还包含其CVE特征关键词cve\_patterns，以及具体的漏洞探索提示exploit\_hints，后者主要用于为下游Exploit Agent提供大致的利用方向。以下以 elasticsearch 和 tomcat 两条记录为例说明字段结构：
 
 \begin{Verbatim}[mathescape=false]
   elasticsearch:
@@ -165,9 +165,9 @@ Check阶段能够在Exploit Agent执行完成后验证漏洞利用是否成功�
 
 改进版在Agent执行过程中，会把每次EXECMD和浏览器工具的原始输出分别记录到raw\_outputs[\textquotedbl Exploit\textquotedbl]中，使它们与模型的推理文本分离。Check阶段的所有验证操作仅在raw\_outputs[\textquotedbl Exploit\textquotedbl]上执行，不再受到LLM推理文本的干扰。
 
-\paragraph{LLM判断优先与正则兜底}
+\paragraph{LLM判断优先与正则回退}
 
-在缩小匹配域的条件下，改进版继续加入两层判断机制。第一层是LLM判断，系统把任务目标和工具输出提交给LLM，使用验证提示词要求其只回答SUCCESS或FAILURE。第二层使用正则匹配作为兜底。如果LLM调用异常或返回结果不明确，系统会切换到使用正则表达式来匹配。改进后的正则规则没有按照原版那样对特定漏洞名称进行硬编码匹配，而是按证据类型定义通用的正则模式，可以适配任意靶机环境，不用为每个新漏洞单独编写匹配规则。
+在缩小匹配域的条件下，改进版继续加入两层判断机制。第一层是LLM判断，系统把任务目标和工具输出提交给LLM，使用验证提示词要求其只回答SUCCESS或FAILURE。第二层以正则匹配作为回退机制。如果LLM调用异常或返回结果不明确，系统将改用正则表达式匹配。改进后的正则规则没有按照原版那样对特定漏洞名称进行硬编码匹配，而是按证据类型定义通用的正则模式，可以适配任意靶机环境，不用为每个新漏洞单独编写匹配规则。
 
 \subsection{提示词结构化与角色差异化}
 
@@ -193,7 +193,7 @@ FORMAT RULES (MUST follow exactly):
 
 原版Scan Agent的角色描述为``your task is to perform the xray scanner''，没有任何行为限制。改进版将其限定为``ROLE: Vulnerability scanner (SCAN ONLY, NO EXPLOITATION). Complete ALL steps.''通过SCAN ONLY, NO EXPLOITATION直接禁止了侦察阶段的越权利用行为。
 
-同时，提示词以(MANDATORY)标记强制规定了Step 1（nmap端口发现）→ Step 2（xray漏洞扫描）→ Step 3（结果）的有序执行流程，RULES模块中以``MUST run nmap FIRST — never assume port 80''作为兜底约束，确保模型不会跳过端口发现直接进入漏洞扫描。
+同时，提示词以(MANDATORY)标记强制规定了Step 1（nmap端口发现）→ Step 2（xray漏洞扫描）→ Step 3（结果）的有序执行流程，RULES模块中以``MUST run nmap FIRST — never assume port 80''作为保障性约束，确保模型不会跳过端口发现直接进入漏洞扫描。
 
 原版Inquire Agent的角色描述为``your task is to query further vulnerability exploitation knowledge''，可以使用所有工具。改进版将其改为：
 
@@ -232,7 +232,7 @@ METHODOLOGY模块规定了包括分析→准备→执行→验证→自适应切
 
 \subsection{上下文压缩机制}
 
-在多轮ReAct循环中，每次工具调用返回的原始输出都会追加到Agent的上下文中。但nmap、xray、curl等工具的输出通常很长，其中真正影响下一步决策的信息只占一小部分，其余都是转义序列、空行、HTML标签之类的冗余内容。原版系统不做裁剪就把它们全部拼进上下文，几轮循环下来Token窗口就会被撑满，Agent还没完成任务就被迫中断。
+在多轮ReAct循环中，每次工具调用返回的原始输出都会追加到Agent的上下文中。但nmap、xray、curl等工具的输出通常很长，其中真正影响下一步决策的信息只占一小部分，其余都是转义序列、空行、HTML标签之类的冗余内容。原版系统未做裁剪便将全部输出拼接进上下文，数轮循环后Token窗口即被占满，Agent还没完成任务就被迫中断。
 
 改进版从两个层面实施上下文压缩：工具输出的即时摘要和跨阶段上下文的结构化组装。
 
@@ -333,9 +333,9 @@ wait\_for\_selector & 等待指定CSS选择器的元素在页面中出现并变�
 
 改进版在Playwright之上封装了三个自定义浏览器扩展工具，继承LangChain的BaseBrowserTool基类，与原生工具包共享同一个浏览器实例，三个工具的功能说明见表\ref{tab:ch3:4}。
 
-这三个自定义工具不需要自己去启动和关闭浏览器，它们通过BaseBrowserTool基类中的函数也能够拿到Toolkit里其他工具正在用的浏览器页面，大家共享同一个浏览器实例。三个自定义工具的错误处理也与原生工具保持一致，遇到超时不会直接抛出异常，而是会返回一条描述性的错误消息，这样Agent可以在下一轮ReAct循环中根据这条信息调整策略。
+三个自定义工具无需自行管理浏览器的启停，通过BaseBrowserTool基类即可获取Toolkit中其他工具正在使用的浏览器页面，与原生工具共享同一浏览器实例。三个自定义工具的错误处理也与原生工具保持一致，遇到超时不会直接抛出异常，而是会返回一条描述性的错误消息，这样Agent可以在下一轮ReAct循环中根据这条信息调整策略。
 
-select\_option工具的内部实现了两级匹配机制，优先按照<option>元素的value属性匹配，如果没有命中则降级为按可见文本标签进行匹配，以此兼容不同的HTML写法。
+select\_option工具的内部实现了两级匹配机制，优先按<option>元素的value属性匹配，若匹配失败则降级为按可见文本标签匹配，以兼容不同的HTML实现方式。
 
 \begin{figure}[htbp]
 \centering
@@ -375,7 +375,7 @@ Step 5 & 全部失败，抛出异常并附带格式修复指导（列出正确�
 
 改进版实现了RobustReActParser，继承原版解析器并覆写parse方法，将解析过程设计为多级逐步降级的容错链，如表\ref{tab:ch3:5}所示。
 
-其中，Step 1的工具名规范化维护了一张已知工具名的映射表，将execmd、exec\_cmd、Execmd等变体统一映射为标准名称EXECMD，同时能从``I will use the EXECMD tool''这类整句话中通过正则提取出合法工具名。Step 2对Inquire Agent的多步PoC输出做了专门处理：即使LLM没有写Final Answer:前缀，只要文本中出现STEP 1:开头且包含可执行命令（如curl、wget等），也会被识别为有效的终止输出。
+其中，Step 1的工具名规范化维护了一张已知工具名的映射表，将execmd、exec\_cmd、Execmd等变体统一映射为标准名称EXECMD，同时能从``I will use the EXECMD tool''这类整句话中通过正则提取出合法工具名。Step 2对Inquire Agent的多步PoC输出做了专门处理：即使LLM的输出缺少Final Answer:前缀，只要文本中出现STEP 1:开头且包含可执行命令（如curl、wget等），也会被识别为有效的终止输出。
 
 配合AgentExecutor创建时注入的\_format\_parsing\_error回调函数，解析失败时系统不再简单报错，而是返回一段结构化的格式指导消息，明确告知LLM应当使用的输出格式和可用工具列表，使模型在下一轮迭代中能够自我修正。
 
@@ -404,15 +404,15 @@ def _format_parsing_error(self, error) -> str:
 
 \subsection{ReadHTML工具的PoC提取增强}
 
-原版ReadHTML工具的功能仅限于抓取指定URL的网页内容并返回纯文本。在渗透测试场景中，Inquire Agent最常访问的是vulhub GitHub仓库中的漏洞README页面，这些页面中包含大量与PoC无关的环境搭建说明、Docker配置和背景介绍，真正有用的PoC命令往往淹没在长文本中，Agent需要消耗额外的推理轮次来从中筛选。
+原版ReadHTML工具的功能仅限于抓取指定URL的网页内容并返回纯文本。在渗透测试场景中，Inquire Agent最常访问的是vulhub GitHub仓库中的漏洞README页面，这些页面中包含大量与PoC无关的环境搭建说明、Docker配置和背景介绍，有效的PoC命令往往混杂在长文本中，Agent需要消耗额外的推理轮次来从中筛选。
 
-改进版对ReadHTML工具做了针对性增强，当输入URL匹配GitHub vulhub仓库的模式时，工具会自动识别并提取README中的代码块（即Markdown的\texttt{}包裹内容），过滤掉环境搭建和Docker相关的命令（如docker-compose up），只返回与漏洞利用直接相关的PoC代码片段。这样Inquire Agent拿到的就是精简后的PoC信息，不需要再花推理轮次从长文本中筛选。
+改进版对ReadHTML工具做了针对性增强，当输入URL匹配GitHub vulhub仓库的模式时，工具会自动识别并提取README中的代码块（即Markdown中用\verb|```|包裹的内容），过滤掉环境搭建和Docker相关的命令（如docker-compose up），只返回与漏洞利用直接相关的PoC代码片段。如此Inquire Agent可直接获得精简后的PoC信息，无需再耗费额外的推理轮次进行筛选。
 
 \section{Web Console前端设计与实现}
 
 \subsection{要解决的问题}
 
-原版AutoPT只提供命令行界面，用户需要自己在终端中输入命令、跟踪滚动日志，并手动管理Docker容器的启停。对熟悉命令行的人这不算问题，但如果面向日常演示、实验记录和图形化运维，门槛就偏高了。那么本文设计Web Console的目标很明确，要把常用操作收拢到一个可视化界面里，让用户不依赖终端也能完成大部分日常任务。
+原版AutoPT只提供命令行界面，用户需在终端中手动输入命令、跟踪滚动日志，并管理Docker容器的启停。对熟悉命令行的用户而言操作难度不高，但面向日常演示、实验记录和图形化运维等场景，使用门槛偏高。因此，本文设计Web Console的目标是将常用操作集中到可视化界面中，使用户无需依赖终端即可完成大部分日常任务。
 
 围绕这个目标，Web Console在设计上需要满足几个基本要求，在渗透测试过程中日志能够实时展示，并且能够把测试结果、Token消耗等统计数据以图表形式呈现。
 
@@ -459,7 +459,7 @@ Web Console各层次的技术选型及其选择理由如表\ref{tab:ch3:6}所示
 
 \paragraph{靶机管理（Docker）}
 
-靶机管理页面分为两个区域。上方的状态栏实时显示Docker服务的运行状态和当前活跃容器列表（包括容器ID、镜像名、运行状态、端口映射和容器名称）。下方以卡片网格形式展示所有可用的Docker Compose漏洞环境，每个环境卡片显示CVE编号和当前运行状态，提供启动、停止和销毁三种操作。启动操作会执行docker-compose up -d拉起环境，销毁操作会执行docker-compose down -v --rmi all彻底清理容器、数据卷和镜像。
+靶机管理页面分为两个区域。上方的状态栏实时显示Docker服务的运行状态和当前活跃容器列表（包括容器ID、镜像名、运行状态、端口映射和容器名称）。下方以卡片网格形式展示所有可用的Docker Compose漏洞环境，每个环境卡片显示CVE编号和当前运行状态，提供启动、停止和销毁三种操作。启动操作通过docker-compose up -d启动环境，销毁操作会执行docker-compose down -v --rmi all彻底清理容器、数据卷和镜像。
 
 \paragraph{测试报告（Results）}
 
@@ -477,7 +477,7 @@ Web Console 后端采用 RESTful 风格设计，完整接口列表见附录\ref{
 
 \paragraph{路由}
 
-为了让代码更精简，本文设计的前端没有引入React或Vue框架，而是用JavaScript写了一个单页应用。整个系统只有一个HTML页面，点击导航项时通过CSS的\texttt{active}类来控制哪块内容显示、哪块隐藏。核心路由代码通过\texttt{PAGE\_TITLES}和\texttt{PAGE\_LOADERS}两个映射表绑定页面与数据加载函数，完整代码见附录\ref{app:router}。
+为精简代码，前端未引入React或Vue框架，而是使用原生JavaScript实现单页应用。整个系统仅包含一个HTML页面，点击导航项时通过CSS的\texttt{active}类控制各区块的显示与隐藏。核心路由代码通过\texttt{PAGE\_TITLES}和\texttt{PAGE\_LOADERS}两个映射表绑定页面与数据加载函数，完整代码见附录\ref{app:router}。
 
 \paragraph{实时日志渲染}
 
@@ -491,7 +491,7 @@ Web Console 后端采用 RESTful 风格设计，完整接口列表见附录\ref{
 
 本章围绕开题报告提出的三个核心问题，从流程控制、工具扩展和管理界面三个方面说明了改进系统的设计与实现。
 
-流程控制部分（3.2节，对应问题一）中，系统首先在PSM状态机的状态转移逻辑中引入条件判断，让PSM状态机能够提前终止。之后对于多种状态阶段做针对性改进：将Scan阶段拆分为端口发现、服务知识匹配、漏洞扫描和结果评估四个子阶段；改进了Check阶段的验证机制，将匹配域缩小至工具真实输出并引入LLM判断与正则兜底的双层校验。随后通过统一ReAct基线模板与角色差异化提示词规范了各Agent的输出格式和行为边界；通过工具输出即时摘要和结构化上下文组装实现了上下文压缩机制。
+流程控制部分（3.2节，对应问题一）中，系统首先在PSM状态机的状态转移逻辑中引入条件判断，让PSM状态机能够提前终止。之后对于多种状态阶段做针对性改进：将Scan阶段拆分为端口发现、服务知识匹配、漏洞扫描和结果评估四个子阶段；改进了Check阶段的验证机制，将匹配域缩小至工具真实输出并引入LLM判断与正则回退的双层校验。随后通过统一ReAct基线模板与角色差异化提示词规范了各Agent的输出格式和行为边界；通过工具输出即时摘要和结构化上下文组装实现了上下文压缩机制。
 
 工具扩展部分（3.3节，对应问题二）中，系统新增了三个自定义浏览器扩展工具补足表单交互能力，同时实现了多级容错的ReAct解析器以适配思维链模型，并增强了ReadHTML工具的PoC自动提取能力。
 
